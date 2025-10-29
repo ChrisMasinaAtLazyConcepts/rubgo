@@ -122,13 +122,34 @@ const handleTherapistClick = (therapist: Therapist, service: any) => {
   const handleConfirmBooking = () => {
     setShowBookingRequest(false)
     setShowBookingLoading(true)
+      if (!selectedTherapist || !selectedService) {
+        console.error("Therapist or service not selected")
+        return
+      }
     
     // Simulate booking process
     setTimeout(() => {
       // In real app, this would navigate to booking success page
-      router.push(`/booking/success?therapist=${selectedTherapist?.id}&service=${selectedService?.name}`)
+    handleBookNow()
     }, 5000) // 5 second delay to simulate waiting
   }
+
+  const handleBookNow = () => {
+  if (!selectedTherapist || !selectedService) {
+    alert("Please select a therapist and service first")
+    return
+  }
+
+  const params = new URLSearchParams({
+    therapist: selectedTherapist.name,
+    service: selectedService.name,
+    price: selectedService.price.toString(),
+    duration: `${selectedService.duration} minutes`,
+  })
+
+  console.log("Navigating to:", `/payment/processing?${params.toString()}`)
+  router.push(`/payment/processing?${params.toString()}`)
+}
 
   // Handle booking cancellation
   const handleCancelBooking = () => {
@@ -137,6 +158,10 @@ const handleTherapistClick = (therapist: Therapist, service: any) => {
     setSelectedTherapist(null)
     setSelectedService(null)
   }
+  
+const handleManagePayment = () => {
+  router.push('/payment-methods')
+}
 
   // Handle contact therapist
   const handleContactTherapist = () => {
@@ -224,12 +249,13 @@ const handleTherapistClick = (therapist: Therapist, service: any) => {
             onConfirm={handleConfirmBooking}
           />
 
-          <BookingLoading
+         <BookingLoading
             therapist={selectedTherapist}
             service={selectedService}
             isOpen={showBookingLoading}
             onCancel={handleCancelBooking}
             onContact={handleContactTherapist}
+            onManagePayment={handleManagePayment}
           />
         </>
       )}

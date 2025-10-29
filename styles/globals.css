@@ -123,3 +123,17 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Smooth progress bar animation */
+.progress-bar {
+  transition: width 0.3s ease-out;
+}

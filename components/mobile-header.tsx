@@ -14,7 +14,7 @@ interface MobileHeaderProps {
 
 export function MobileHeader({ title, showBack, onBack, rightAction }: MobileHeaderProps) {
   return (
-    <header className="sticky top-0 z-50 w-full border-b-2 border-[#EDB64D] bg-[#1a2a3a] text-white shadow-md">
+    <header className="sticky top-0 z-50 w-full border-b-2 border-[#A2E5D8]] bg-[#1a2a3a] text-white shadow-md">
       <div className="flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-2">
           {showBack && (
