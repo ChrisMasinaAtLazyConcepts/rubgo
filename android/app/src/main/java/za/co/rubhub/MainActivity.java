@@ -5,6 +5,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.os.Build;
+import java.util.ArrayList; // Add this import
 
 import com.getcapacitor.BridgeActivity;
 
@@ -41,7 +42,7 @@ public class MainActivity extends BridgeActivity {
         }
 
         // Use your computer's IP address instead of localhost
-        String serverUrl = "http://192.168.1.100:3000"; // Replace with your computer's IP
+        String serverUrl = "http://192.168.0.81:3000"; // Replace with your computer's IP
         
         webView.setWebViewClient(new WebViewClient() {
             @Override
