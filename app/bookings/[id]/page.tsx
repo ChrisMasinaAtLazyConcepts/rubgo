@@ -1,3 +1,4 @@
+// app/bookings/[id]/page.tsx
 "use client"
 
 import { useParams, useRouter } from "next/navigation"
@@ -7,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar, MapPin, Clock, User, Phone, MessageCircle, Star, ArrowLeft, Navigation } from "lucide-react"
+
 
 export default function BookingDetailsPage() {
   const params = useParams()
