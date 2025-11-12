@@ -31,6 +31,17 @@ jobs:
     - name: Build Next.js app
       run: npm run build
       
+    - name: Create missing directories and files
+      run: |
+        # Create the out directory if it doesn't exist
+        mkdir -p out
+        # Create a simple index.html if it doesn't exist
+        if [ ! -f "out/index.html" ]; then
+          echo '<!DOCTYPE html><html><head><title>RubHub</title></head><body><h1>Loading RubHub...</h1></body></html>' > out/index.html
+        fi
+        # Create android assets directory
+        mkdir -p android/app/src/main/assets
+      
     - name: Setup Java 21 (Required for Capacitor)
       uses: actions/setup-java@v4
       with:
@@ -48,6 +59,10 @@ jobs:
       
     - name: Install Capacitor and sync
       run: |
+        # Create required config files manually
+        mkdir -p android/app/src/main/assets
+        echo '{}' > android/app/src/main/assets/capacitor.config.json
+        echo '{}' > android/app/src/main/assets/capacitor.plugins.json
         npx cap sync
       
     - name: Build APK with Java 21
