@@ -1,46 +1,81 @@
-<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/RubHub"
+        android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/AppTheme">
+        android:theme="@style/AppTheme"
+        android:usesCleartextTraffic="true">
+
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
-            android:name="com.yourapp.MainActivity"
-            android:label="@string/RubHub"
+            android:name=".MainActivity"
+            android:label="@string/app_name"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
             android:exported="true">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
         </activity>
 
+        <!-- Camera features (optional) -->
+        <meta-data
+            android:name="android.hardware.camera"
+            android:required="false" />
+        <meta-data
+            android:name="android.hardware.camera.autofocus"
+            android:required="false" />
+
+        <!-- Biometric features -->
+        <meta-data
+            android:name="android.hardware.biometrics.face"
+            android:required="false" />
+        <meta-data
+            android:name="android.hardware.fingerprint"
+            android:required="false" />
+
         <!-- AdMob configuration -->
-        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="@string/admob_app_id" />
-        <!-- This references @string/admob_app_id -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="@string/admob_app_id"/>
+
     </application>
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-
+    
     <!-- Camera Permissions -->
     <uses-permission android:name="android.permission.CAMERA" />
-
+    
     <!-- Microphone Permissions -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-
+    
     <!-- Biometric/Fingerprint Permissions -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
-
+    
     <!-- Additional permissions for file access -->
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
+
+    <!-- Feature declarations (optional) -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.fingerprint"
+        android:required="false" />
+
 </manifest>

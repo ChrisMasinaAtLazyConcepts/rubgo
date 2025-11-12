@@ -1,13 +1,16 @@
-// capacitor.config.ts
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'za.co.rubhub',
   appName: 'RubHub',
-  webDir: 'public', // Point to public directory
+  webDir: 'out', // Use 'out' for Next.js build output
   server: {
-    androidScheme: 'https',
-    url: 'http://localhost:3000' // For development
+    url: 'http://192.168.1.100:3000', // Your computer's IP for development
+    cleartext: true, // Allow HTTP traffic
+    androidScheme: 'https' // Fallback for production
+  },
+  android: {
+    allowMixedContent: true // Allow HTTP content in WebView
   }
 };
 

@@ -31,23 +31,6 @@ jobs:
     - name: Build Next.js app
       run: npm run build
       
-    - name: Install Capacitor assets CLI
-      run: npm install @capacitor/assets --save-dev --legacy-peer-deps
-      
-    - name: Create placeholder assets if missing
-      run: |
-        mkdir -p assets
-        if [ ! -f "assets/icon.png" ]; then
-          sudo apt-get update && sudo apt-get install -y imagemagick
-          convert -size 1024x1024 xc:#C6C6C6 assets/icon.png
-        fi
-        if [ ! -f "assets/splash.png" ]; then
-          convert -size 2732x2732 xc:#C6C6C6 assets/splash.png
-        fi
-        
-    - name: Generate app icons and splash screens
-      run: npx capacitor-assets generate
-      
     - name: Setup Java 21 (Required for Capacitor)
       uses: actions/setup-java@v4
       with:
