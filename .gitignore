@@ -6,10 +6,9 @@
 # next.js
 /.next/
 /out/
-.exe
 # production
 /build
-.exe
+.exe*
 # debug
 npm-debug.log*
 yarn-debug.log*
