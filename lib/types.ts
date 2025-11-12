@@ -9,6 +9,30 @@ export interface MassageService {
   category: "relaxation" | "therapeutic" | "specialized"
 }
 
+export interface Booking {
+  id: string
+  scheduledTime: string
+  therapist: {
+    id: string
+    name: string
+    image: string
+    location: any;
+    rating: number
+    rate: number
+  }
+  service: {
+    name: string
+    duration: number
+    price: number
+  }
+  date: string
+  startTime: string
+  endTime: string
+  status: 'upcoming' | 'in-progress' | 'completed' | 'therapist-en-route'
+  address: string
+  userLocation:any
+}
+
 export interface Therapist {
   id: string
   name: string

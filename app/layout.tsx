@@ -6,7 +6,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Massage2GO - Find Therapists',
+  title: 'RubGo - Find Therapists',
   description: 'Find massage therapists near you',
 }
 

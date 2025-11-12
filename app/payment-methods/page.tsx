@@ -141,12 +141,22 @@ export default function PaymentMethodsPage() {
       <div className="p-4 space-y-4">
         {/* Current Payment Methods */}
         <div className="space-y-3">
+           <img 
+            className="mx-auto w-32 h-32 object-contain"
+            src="/visa.png"
+            alt="RubGo" 
+          />
           <h2 className="text-lg font-semibold">Your Cards</h2>
           
           {paymentMethods.map((payment) => (
             <Card key={payment.id} className="relative">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
+                      <img 
+                          className="w-12 h-12 object-contain"
+                          src="/visa.png"
+                          alt="visa" 
+                        />
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded flex items-center justify-center">
                       <span className="text-white text-sm">{getCardIcon(payment.type)}</span>

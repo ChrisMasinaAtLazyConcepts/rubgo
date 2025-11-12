@@ -8,7 +8,7 @@ export function BottomNav() {
 
   const navItems = [
     { icon: Home, href: "/", label: "Home" },
-    { icon: Search, href: "/search", label: "Search" },
+    { icon: Search, href: "/browse", label: "Search" },
     { icon: Calendar, href: "/bookings", label: "Bookings" },
     { icon: User, href: "/profile", label: "Profile" },
   ]

@@ -79,46 +79,9 @@ function PaymentProcessingContent() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2">
+        <div >
           {/* Left Side - Animation */}
-          <div className="bg-gradient-to-br from-blue-50 to-green-50 p-8 flex items-center justify-center">
-            <div className="text-center">
-              <div className="relative">
-                <div className="w-64 h-64 mx-auto mb-6 relative">
-                  <div className="absolute inset-0 bg-blue-200 rounded-full animate-ping opacity-20"></div>
-                  <div className="absolute inset-4 bg-gradient-to-br from-blue-400 to-green-400 rounded-full flex items-center justify-center">
-                    <div className="text-white text-center">
-                      <Sparkles className="h-12 w-12 mx-auto mb-2 animate-pulse" />
-                      <div className="text-sm font-semibold">Processing</div>
-                    </div>
-                    <div className="absolute inset-0 border-4 border-transparent border-t-white rounded-full animate-spin"></div>
-                  </div>
-                  <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-400 rounded-full animate-bounce"></div>
-                  <div className="absolute -bottom-2 -left-2 w-6 h-6 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  <div className="absolute -top-2 -left-2 w-4 h-4 bg-teal-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-                </div>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="mt-6">
-                <div className="flex justify-between text-sm text-gray-600 mb-2">
-                  <span>Processing...</span>
-                  <span>{progress}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div 
-                    className="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all duration-300 ease-out"
-                    style={{ width: `${progress}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex items-center justify-center text-sm text-gray-600">
-                <Shield className="h-4 w-4 mr-1 text-green-500" />
-                <span>Secure encrypted connection</span>
-              </div>
-            </div>
-          </div>
+         
 
           {/* Right Side - Service Info & Steps */}
           <div className="p-8">
@@ -133,17 +96,7 @@ function PaymentProcessingContent() {
                 </div>
               </div>
               
-              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                <h3 className="font-semibold text-gray-900 text-lg">{serviceName}</h3>
-                <div className="flex items-center text-sm text-gray-600">
-                  <Clock className="h-4 w-4 mr-2 text-blue-500" />
-                  <span>{duration}</span>
-                </div>
-                <div className="flex items-center text-sm text-green-600">
-                  <Check className="h-4 w-4 mr-1" />
-                  <span>Professional equipment • Sanitized</span>
-                </div>
-              </div>
+        
             </div>
 
             {/* Processing Steps */}

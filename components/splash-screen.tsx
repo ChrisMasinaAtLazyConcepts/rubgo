@@ -45,49 +45,50 @@ export default function SplashScreen({
     <AnimatePresence>
       {isVisible && (
         <motion.div
-          className="fixed inset-0 z-50 bg-[#A2E5D8]"
+          className="fixed inset-0 z-50 bg-[#F9FCFF]"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.5 }}
         >
-          {/* Full Screen Logo */}
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="w-full h-full flex items-center justify-center"
-          >
-            <div className="w-full h-full flex items-center justify-center p-4">
-              <img 
-                className="w-full h-full object-contain"
-                src="/logo.png"
-                alt="Logo" 
-              />
-            </div>
-          </motion.div>
+      {/* Full Screen Logo */}
 
-          {/* Overlay Progress Bar at Bottom */}
-          <div className="absolute bottom-20 left-0 right-0 px-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.6 }}
-              className="space-y-4"
-            >
-              <br/>
-              {/* Progress Bar Background */}
-              <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                {/* Progress Bar Fill */}
-                <motion.div
-                  className="h-full bg-blue-600 rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
-                  transition={{ duration: 0.1 }}
-                />
-              </div>
-
-            </motion.div>
-          </div>
+      <div className="min-h-screen flex flex-col items-center justify-center">
+        <img 
+          className="w-40 h-40 object-contain"
+          src="/rubbgo2.png"
+          alt="Logo" 
+        />
+        <h1 className="text-center text-4xl font-bold mb-1 text-green-700">
+          RubHub™
+        </h1>
+      </div>
+        {/* Overlay Spinner at Bottom */}
+<div className="absolute bottom-20 left-0 right-0 px-8">
+  <motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.5, delay: 0.6 }}
+  className="flex justify-center items-center"
+>
+  {/* Spinner Container */}
+  <div className="relative w-16 h-16">
+    {/* Background Circle */}
+    <div className="absolute inset-0 rounded-full border-3 border-gray-200"></div>
+    
+    {/* Animated Spinner Circle */}
+    <motion.div
+      className="absolute inset-0 rounded-full border-3 border-green-800 border-t-transparent"
+      initial={{ rotate: 0 }}
+      animate={{ rotate: 360 }}
+      transition={{
+        duration: 1,
+        repeat: Infinity,
+        ease: "linear"
+      }}
+    />
+  </div>
+</motion.div>
+</div>
         </motion.div>
       )}
     </AnimatePresence>

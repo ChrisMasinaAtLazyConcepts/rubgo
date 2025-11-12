@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 
 interface User {
+  userType: string
   id: string
   email: string
   name: string
@@ -40,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: "1",
       email,
       name: email.split("@")[0],
+      userType:'client'
     }
 
     setUser(mockUser)
@@ -55,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       name,
       phone,
+      userType:'client'
     }
 
     setUser(mockUser)

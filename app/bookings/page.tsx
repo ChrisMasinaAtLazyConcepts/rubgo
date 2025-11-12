@@ -4,32 +4,16 @@ import { BottomNav } from "@/components/bottom-nav"
 import { MobileHeader } from "@/components/mobile-header"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, MapPin, Clock, User, ChevronRight, Phone, MessageCircle, Star } from "lucide-react"
+import { Calendar, MapPin, Clock, ChevronRight, Phone, MessageCircle, Star, Sparkles, Heart, Zap, ShieldCheck } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { useState } from "react"
+import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { Navigation, CheckCircle, X } from "lucide-react"
-
-interface Booking {
-  id: string
-  therapist: {
-    id: string
-    name: string
-    image: string
-    rating: number
-  }
-  service: {
-    name: string
-    duration: number
-    price: number
-  }
-  date: string
-  startTime: string
-  endTime: string
-  status: 'upcoming' | 'in-progress' | 'completed' | 'therapist-en-route'
-  address: string
-}
+import { CheckCircle, X } from "lucide-react"
+import TherapistEnRoute from "@/components/therapist-en-route"
+import { Booking } from "@/lib/types";
+import { AlertTriangle, Shield, Send, AlertCircle } from "lucide-react"
+import { Label } from "@radix-ui/react-label"
 
 interface BookingViewModalProps {
   bookingId: string
@@ -41,19 +25,15 @@ function BookingViewModal({ bookingId, booking, onClose }: BookingViewModalProps
   const [currentView, setCurrentView] = useState<'details' | 'review'>('details')
   const [rating, setRating] = useState(0)
   const [review, setReview] = useState('')
-  const [therapistLocation, setTherapistLocation] = useState({ lat: -26.2041, lng: 28.0473 })
+  const [showEmergencyModal, setShowEmergencyModal] = useState(false)
+  const [emergencyNote, setEmergencyNote] = useState("")
 
-  useEffect(() => {
-    if (booking.status === 'therapist-en-route') {
-      const interval = setInterval(() => {
-        setTherapistLocation(prev => ({
-          lat: prev.lat + (Math.random() - 0.5) * 0.001,
-          lng: prev.lng + (Math.random() - 0.5) * 0.001
-        }))
-      }, 3000)
-      return () => clearInterval(interval)
-    }
-  }, [booking.status])
+  const handleEmergencySubmit = async () => {
+    console.log("Emergency alert sent:", emergencyNote)
+    setShowEmergencyModal(false)
+    setEmergencyNote("")
+    alert("Emergency alert sent! Help is on the way.")
+  }
 
   const renderStars = (count: number, interactive = false) => {
     return (
@@ -63,12 +43,12 @@ function BookingViewModal({ bookingId, booking, onClose }: BookingViewModalProps
             key={star}
             type={interactive ? "button" : undefined}
             onClick={interactive ? () => setRating(star) : undefined}
-            className={`${interactive ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
+            className={`${interactive ? 'cursor-pointer hover:scale-110 transition-transform duration-200' : ''}`}
           >
             <Star
-              className={`w-6 h-6 ${
+              className={`w-6 h-6 transition-colors ${
                 star <= count 
-                  ? 'fill-yellow-400 text-yellow-400' 
+                  ? 'fill-yellow-400 text-yellow-400 drop-shadow-sm' 
                   : 'text-gray-300'
               }`}
             />
@@ -79,194 +59,379 @@ function BookingViewModal({ bookingId, booking, onClose }: BookingViewModalProps
   }
 
   const views = {
-    'in-progress': (
-      <div className="fixed inset-0 bg-black z-50 flex flex-col">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          className="absolute top-4 right-4 z-10 bg-blue/20 text-white hover:bg-white/30"
+   'in-progress': (
+  <div className="bg-gradient-to-br from-slate-900 via-green-900 to-slate-900 fixed inset-0 z-50 flex flex-col">
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={onClose}
+      className="absolute top-4 right-4 z-10 bg-white/10 backdrop-blur-sm text-white hover:bg-white/20"
+    >
+      <X size={24} />
+    </Button>
+    
+    {/* Animated Background */}
+    <div className="absolute inset-0 opacity-20">
+      <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-green-500 rounded-full blur-xl animate-pulse"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-emerald-500 rounded-full blur-xl animate-pulse delay-1000"></div>
+    </div>
+
+    <div className="flex-1 relative flex items-center justify-center p-6">
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="text-center w-full max-w-2xl"
+      >
+        {/* Session Image - Fixed sizing */}
+        <div className="relative mb-8 w-full h-48 bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+          <img 
+            src="./assets/splash.gif" 
+            alt="Massage in progress" 
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+        </div>
+        
+        <motion.h2 
+          className="text-3xl font-bold mb-4 bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.2 }}
         >
-          <X size={24} />
-        </Button>
-        <div className="flex-1 relative">
-          {/* Replace with actual GIF */}
-          <div className="w-full h-full bg-white flex items-center justify-center">
-            <div className="text-white text-center">
-              <img 
-                  src="./assets/splash.gif" 
-                  alt="Loading..." 
-                  className="mx-auto w-full h-full"
-                />
-              <p className="text-xl ">Massage in Progress</p>
+          Session in Progress
+        </motion.h2>
+        
+        <motion.p 
+          className="text-xl mb-6 text-white/80"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          Your massage with <span className="font-semibold text-white">{booking.therapist.name}</span>
+        </motion.p>
+
+        <motion.div 
+          className="flex justify-center gap-3 mb-8"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.4 }}
+        >
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl px-6 py-3 border border-white/20">
+            <Clock className="w-5 h-5 text-green-400 inline mr-2" />
+            <span className="text-white font-semibold">45min remaining</span>
+          </div>
+        </motion.div>
+        
+        {/* Emergency Button */}
+        <motion.div 
+          className="mt-8"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.5 }}
+        >
+          <Button 
+            variant="destructive"
+            className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-2xl px-8 py-4 font-bold shadow-2xl animate-pulse border border-red-400/50"
+            onClick={() => setShowEmergencyModal(true)}
+          >
+            <AlertTriangle className="w-6 h-6 mr-3" />
+            EMERGENCY ASSISTANCE
+          </Button>
+          <p className="text-xs text-red-300/80 mt-3">Only use in genuine emergencies</p>
+        </motion.div>
+      </motion.div>
+    </div>
+
+    {/* Emergency Modal */}
+    {showEmergencyModal && (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="fixed inset-0 bg-black/95 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      >
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl border border-gray-200"
+        >
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">Emergency Assistance</h3>
+              <p className="text-sm text-gray-600 mt-1">Help is on the way. Please describe the situation.</p>
             </div>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-            <div className="text-center ">
-              <h2 className="text-2xl font-bold mb-2 text-green/40">Session in Progress</h2>
-              <p className="text-lg mb-4">Your massage session with {booking.therapist.name} is ongoing</p>
-              <div className="flex justify-center gap-3">
-                <Button variant="outline" className="bg-white/20 border-white/30">
-                  <Clock className="w-4 h-4 mr-2" />
-                  Time Remaining: 45min
-                </Button>
+
+          <div className="space-y-6">
+            <div>
+              <Label htmlFor="emergency-note" className="text-sm font-medium text-gray-700 mb-2 block">
+                What's happening?
+              </Label>
+              <textarea
+                id="emergency-note"
+                placeholder="Please describe the emergency situation in detail..."
+                rows={4}
+                className="w-full border border-gray-300 rounded-2xl p-4 text-sm focus:border-red-500 focus:ring-2 focus:ring-red-200 transition-all"
+                value={emergencyNote}
+                onChange={(e) => setEmergencyNote(e.target.value)}
+              />
+            </div>
+
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-red-800">
+                  <p className="font-semibold mb-2">Emergency protocols activated:</p>
+                  <ul className="space-y-1">
+                    <li>• Security and medical help notified</li>
+                    <li>• Session recording flagged for review</li>
+                    <li>• Therapist's supervisor alerted</li>
+                    <li>• Your location shared with emergency services</li>
+                  </ul>
+                </div>
               </div>
             </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowEmergencyModal(false)}
+                className="flex-1 border-gray-300 rounded-xl hover:bg-gray-50 text-gray-700"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleEmergencySubmit}
+                disabled={!emergencyNote.trim()}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold shadow-lg"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                Send Emergency Alert
+              </Button>
+            </div>
           </div>
-        </div>
-      </div>
-    ),
+        </motion.div>
+      </motion.div>
+    )}
+  </div>
+),
 
     'upcoming': (
-      <div className="fixed inset-0 bg-white z-50 flex flex-col">
+      <div className="fixed inset-0 bg-gradient-to-br from-blue-50 to-indigo-100 z-50 flex flex-col">
         <Button
           variant="ghost"
           size="icon"
           onClick={onClose}
-          className="absolute top-4 right-4 z-10"
+          className="absolute top-4 right-4 z-10 bg-white/80 backdrop-blur-sm hover:bg-white"
         >
           <X size={24} />
         </Button>
-        <div className="flex-1 relative flex items-center justify-center">
-          {/* Replace with actual GIF */}
-          <div className="max-w-md w-full text-center">
-            <div className="text-6xl mb-4">📅</div>
-            <p className="text-xl">Upcoming Booking</p>
-          </div>
-          <div className="absolute bottom-6 left-6 right-6">
-            <div className="bg-white rounded-2xl shadow-lg p-6 border">
+        
+        <div className="flex-1 relative flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="max-w-md w-full text-center"
+          >
+            <div className="mb-8">
+              <motion.div 
+                className="text-6xl mb-4"
+                animate={{ 
+                  y: [0, -10, 0],
+                  rotate: [0, 5, -5, 0]
+                }}
+                transition={{ 
+                  y: { duration: 3, repeat: Infinity },
+                  rotate: { duration: 4, repeat: Infinity }
+                }}
+              >
+                📅
+              </motion.div>
+              <h1 className="text-2xl font-bold text-gray-800 mb-2">Upcoming Booking</h1>
+              <p className="text-gray-600">Your session is scheduled and confirmed</p>
+            </div>
+            
+            <motion.div 
+              className="bg-white rounded-3xl shadow-xl p-6 border border-gray-100"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
               <div className="flex items-center gap-4 mb-4">
                 <img
                   src={booking.therapist.image}
                   alt={booking.therapist.name}
-                  className="w-16 h-16 rounded-full object-cover"
+                  className="w-16 h-16 rounded-2xl object-cover shadow-lg border-2 border-blue-200"
                 />
-                <div>
-                  <h3 className="font-semibold text-lg">{booking.therapist.name}</h3>
-                  <div className="flex items-center gap-1 text-sm text-gray-600">
+                <div className="text-left">
+                  <h3 className="font-bold text-lg text-gray-800">{booking.therapist.name}</h3>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                     <span>{booking.therapist.rating}</span>
+                    <Sparkles className="w-4 h-4 text-blue-500" />
                   </div>
                 </div>
               </div>
               
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <Calendar className="w-5 h-5 text-gray-500" />
-                  <span>{new Date(booking.date).toLocaleDateString()}</span>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
+                  <Calendar className="w-5 h-5 text-blue-600" />
+                  <span className="text-gray-700">{new Date(booking.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Clock className="w-5 h-5 text-gray-500" />
-                  <span>{booking.startTime} - {booking.endTime}</span>
+                <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl">
+                  <Clock className="w-5 h-5 text-green-600" />
+                  <span className="text-gray-700">{booking.startTime} - {booking.endTime}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <MapPin className="w-5 h-5 text-gray-500" />
-                  <span className="text-sm">{booking.address}</span>
+                <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl">
+                  <MapPin className="w-5 h-5 text-purple-600" />
+                  <span className="text-gray-700 text-sm">{booking.address}</span>
                 </div>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
       </div>
     ),
 
     'completed': (
-      <div className="fixed inset-0 bg-white z-50 overflow-y-auto">
+      <div className="fixed inset-0 bg-gradient-to-br from-green-50 to-emerald-100 z-50 overflow-y-auto">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 bg-white/80 backdrop-blur-sm hover:bg-white"
+        >
+          <X size={24} />
+        </Button>
+        
         <div className="max-w-md mx-auto py-8 px-6">
           {currentView === 'details' ? (
-            <>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
               <div className="text-center mb-8">
-                <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                <h1 className="text-2xl font-bold mb-2">Session Completed</h1>
-                <p className="text-gray-600">How was your experience with {booking.therapist.name}?</p>
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 200 }}
+                >
+                  <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4 drop-shadow-sm" />
+                </motion.div>
+                <h1 className="text-3xl font-bold mb-3 text-gray-800">Session Completed</h1>
+                <p className="text-gray-600 text-lg">How was your experience with {booking.therapist.name}?</p>
               </div>
 
-              <div className="bg-gray-50 rounded-2xl p-6 mb-6">
-                <div className="flex items-center gap-4 mb-4">
-                  <img
-                    src={booking.therapist.image}
-                    alt={booking.therapist.name}
-                    className="w-16 h-16 rounded-full object-cover"
-                  />
-                  <div>
-                    <h3 className="font-semibold">{booking.therapist.name}</h3>
-                    <div className="flex items-center gap-1 text-sm text-gray-600">
-                      <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                      <span>{booking.therapist.rating}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Service</span>
-                    <span>{booking.service.name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Date</span>
-                    <span>{new Date(booking.date).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Time</span>
-                    <span>{booking.startTime} - {booking.endTime}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Duration</span>
-                    <span>{booking.service.duration} minutes</span>
-                  </div>
-                </div>
-              </div>
-
-              <Button 
-                onClick={() => setCurrentView('review')}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              <motion.div 
+                className="bg-white rounded-3xl shadow-lg p-6 mb-6 border border-green-100"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.2 }}
               >
-                Rate & Review Session
-              </Button>
-            </>
-          ) : (
-            <>
-              <div className="text-center mb-6">
-                <h1 className="text-2xl font-bold mb-2">Rate Your Session</h1>
-                <p className="text-gray-600">Share your experience with {booking.therapist.name}</p>
-              </div>
-
-              <div className="bg-white border rounded-2xl p-6 mb-6">
                 <div className="flex items-center gap-4 mb-6">
                   <img
                     src={booking.therapist.image}
                     alt={booking.therapist.name}
-                    className="w-12 h-12 rounded-full object-cover"
+                    className="w-16 h-16 rounded-2xl object-cover shadow-md border-2 border-green-200"
                   />
                   <div>
-                    <h3 className="font-semibold">{booking.therapist.name}</h3>
+                    <h3 className="font-bold text-lg text-gray-800">{booking.therapist.name}</h3>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                      <span>{booking.therapist.rating}</span>
+                      <ShieldCheck className="w-4 h-4 text-green-500" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 text-sm bg-gray-50 rounded-2xl p-4">
+                  <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                    <span className="text-gray-600 font-medium">Service</span>
+                    <span className="text-gray-800 font-semibold">{booking.service.name}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                    <span className="text-gray-600 font-medium">Date</span>
+                    <span className="text-gray-800">{new Date(booking.date).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                    <span className="text-gray-600 font-medium">Time</span>
+                    <span className="text-gray-800">{booking.startTime} - {booking.endTime}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-gray-600 font-medium">Duration</span>
+                    <span className="text-gray-800 font-semibold">{booking.service.duration} minutes</span>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.4 }}
+              >
+                <Button 
+                  onClick={() => setCurrentView('review')}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-2xl py-4 font-semibold shadow-lg transition-all duration-300"
+                >
+                  <Star className="w-5 h-5 mr-2" />
+                  Rate & Review Session
+                </Button>
+              </motion.div>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+            >
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-bold mb-3 text-gray-800">Rate Your Session</h1>
+                <p className="text-gray-600 text-lg">Share your experience with {booking.therapist.name}</p>
+              </div>
+
+              <motion.div 
+                className="bg-white rounded-3xl shadow-lg p-6 mb-6 border border-blue-100"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+              >
+                <div className="flex items-center gap-4 mb-6">
+                  <img
+                    src={booking.therapist.image}
+                    alt={booking.therapist.name}
+                    className="w-12 h-12 rounded-2xl object-cover shadow-md"
+                  />
+                  <div>
+                    <h3 className="font-semibold text-gray-800">{booking.therapist.name}</h3>
                     <p className="text-sm text-gray-600">{booking.service.name}</p>
                   </div>
                 </div>
 
-                <div className="text-center mb-6">
-                  <p className="text-lg font-medium mb-4">How would you rate your session?</p>
-                  {renderStars(rating, true)}
+                <div className="text-center mb-8">
+                  <p className="text-lg font-semibold text-gray-800 mb-6">How would you rate your session?</p>
+                  <div className="flex justify-center">
+                    {renderStars(rating, true)}
+                  </div>
                 </div>
 
-                <div className="space-y-3">
-                  <label className="block text-sm font-medium text-gray-700">
+                <div className="space-y-4">
+                  <label className="block text-sm font-semibold text-gray-700">
                     Write a review (optional)
                   </label>
                   <textarea
                     value={review}
                     onChange={(e) => setReview(e.target.value)}
-                    placeholder="Share details about your experience..."
-                    className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Share details about your experience, what you enjoyed, or any suggestions..."
+                    className="w-full h-32 p-4 border border-gray-300 rounded-2xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   />
                 </div>
-              </div>
+              </motion.div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-4">
                 <Button
                   variant="outline"
                   onClick={() => setCurrentView('details')}
-                  className="flex-1"
+                  className="flex-1 border-gray-300 rounded-2xl hover:bg-gray-50 font-semibold"
                 >
                   Back
                 </Button>
@@ -276,125 +441,40 @@ function BookingViewModal({ bookingId, booking, onClose }: BookingViewModalProps
                     setCurrentView('details')
                   }}
                   disabled={rating === 0}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                  className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-2xl font-semibold shadow-lg transition-all duration-300 disabled:opacity-50"
                 >
+                  <Heart className="w-5 h-5 mr-2" />
                   Submit Review
                 </Button>
               </div>
-            </>
+            </motion.div>
           )}
         </div>
       </div>
     ),
 
     'therapist-en-route': (
-      <div className="fixed inset-0 bg-white z-50 flex flex-col">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          className="absolute top-4 right-4 z-10"
-        >
-          <X size={24} />
-        </Button>
-        <div className="flex-1 relative bg-gray-100">
-          <div className="absolute inset-0 bg-blue-50">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-green-100">
-              <div className="absolute top-1/2 left-0 right-0 h-2 bg-gray-400 transform -translate-y-1/2"></div>
-              <div className="absolute left-1/2 top-0 bottom-0 w-2 bg-gray-400 transform -translate-x-1/2"></div>
-              
-              <motion.div
-                animate={{
-                  left: `${50 + (therapistLocation.lng * 100)}%`,
-                  top: `${50 + (therapistLocation.lat * 100)}%`
-                }}
-                transition={{ type: "spring", damping: 20 }}
-                className="absolute w-12 h-12 -ml-6 -mt-6"
-              >
-                <div className="relative">
-                  <img
-                    src={booking.therapist.image}
-                    alt={booking.therapist.name}
-                    className="w-12 h-12 rounded-full border-2 border-white shadow-lg"
-                  />
-                  <div className="absolute -top-2 -right-2 bg-red-500 rounded-full w-6 h-6 flex items-center justify-center">
-                    <Navigation className="w-3 h-3 text-white" />
-                  </div>
-                </div>
-              </motion.div>
-
-              <div className="absolute top-1/2 left-1/2 w-8 h-8 -ml-4 -mt-4">
-                <MapPin className="w-8 h-8 text-red-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="absolute top-0 left-0 right-0 bg-white/90 backdrop-blur-sm p-4 border-b">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="font-bold text-lg">{booking.therapist.name} is on the way</h1>
-                <p className="text-sm text-gray-600">Estimated arrival: 15 minutes</p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="icon">
-                  <Phone className="w-4 h-4" />
-                </Button>
-                <Button variant="outline" size="icon">
-                  <MessageCircle className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="absolute bottom-0 left-0 right-0 bg-white border-t p-6">
-            <div className="flex items-center gap-4 mb-4">
-              <img
-                src={booking.therapist.image}
-                alt={booking.therapist.name}
-                className="w-16 h-16 rounded-full object-cover"
-              />
-              <div className="flex-1">
-                <h3 className="font-semibold">{booking.therapist.name}</h3>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Navigation className="w-4 h-4 text-green-500" />
-                  <span>Moving towards your location</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" className="flex items-center gap-2">
-                <Phone className="w-4 h-4" />
-                Call
-              </Button>
-              <Button variant="outline" className="flex items-center gap-2">
-                <MessageCircle className="w-4 h-4" />
-                Message
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <div></div>
     )
   }
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-      >
-        {views[booking.status]}
-      </motion.div>
-    </AnimatePresence>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      {views[booking.status as keyof typeof views] || <div>Unknown booking status</div>}
+    </motion.div>
   )
 }
 
 export default function BookingsPage() {
   const router = useRouter()
   const [activeBooking, setActiveBooking] = useState<{id: string, booking: Booking} | null>(null)
+  const [activeEnRouteBooking, setActiveEnRouteBooking] = useState<Booking | null>(null)
 
+  // Mock bookings data
   const bookings: Booking[] = [
     {
       id: "1",
@@ -402,7 +482,9 @@ export default function BookingsPage() {
         id: "1",
         name: "James Mbeki",
         image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-        rating: 4.7
+        rate: 350,
+        rating: 4.9,
+        location: { lat: -26.1076, lng: 28.0567 }
       },
       service: {
         name: "Swedish Massage",
@@ -413,7 +495,9 @@ export default function BookingsPage() {
       startTime: "16:30",
       endTime: "18:00",
       status: "in-progress",
-      address: "Your Office - Sandton"
+      address: "Your Office - Sandton",
+      scheduledTime: "",
+      userLocation: { lat: -26.1025, lng: 28.0534 },
     },
     {
       id: "2",
@@ -421,7 +505,9 @@ export default function BookingsPage() {
         id: "2",
         name: "Priya Singh",
         image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
-        rating: 4.8
+        rate: 350,
+        rating: 4.9,
+        location: { lat: -26.1076, lng: 28.0567 }
       },
       service: {
         name: "Aromatherapy Massage",
@@ -432,22 +518,76 @@ export default function BookingsPage() {
       startTime: "11:00",
       endTime: "12:00",
       status: "upcoming",
-      address: "Your Location - Home"
+      address: "Your Location - Home",
+      userLocation: { lat: -26.1025, lng: 28.0534 },
+      scheduledTime: ""
+    },
+    {
+      id: "3",
+      therapist: {
+        id: "2",
+        name: "Priya Singh",
+        image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
+        rate: 350,
+        rating: 4.9,
+        location: { lat: -26.1076, lng: 28.0567 }
+      },
+      service: {
+        name: "Aromatherapy Massage",
+        duration: 60,
+        price: 500
+      },
+      date: "2024-01-18",
+      startTime: "",
+      endTime: "",
+      status: "therapist-en-route",
+      address: "Your Location - Home",
+      scheduledTime: "",
+      userLocation: { lat: -26.1025, lng: 28.0534 },
+    },
+    {
+      id: "4",
+      therapist: {
+        id: "1",
+        name: "James Mbeki",
+        image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
+        rate: 350,
+        rating: 4.9,
+        location: { lat: -26.1076, lng: 28.0567 }
+      },
+      service: {
+        name: "Swedish Massage",
+        duration: 90,
+        price: 650
+      },
+      date: "2024-01-16",
+      startTime: "16:30",
+      endTime: "18:00",
+      status: "completed",
+      address: "Your Office - Sandton",
+      scheduledTime: "",
+      userLocation: undefined
     },
   ]
+
+  const handleTherapistArrived = () => {
+    console.log('Therapist has arrived!')
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "confirmed":
-        return "bg-green-500"
+        return "bg-gradient-to-r from-green-500 to-emerald-500"
       case "in-progress":
-        return "bg-blue-500"
+        return "bg-gradient-to-r from-blue-500 to-cyan-500"
       case "upcoming":
-        return "bg-orange-500"
+        return "bg-gradient-to-r from-orange-500 to-amber-500"
       case "completed":
-        return "bg-gray-500"
+        return "bg-gradient-to-r from-gray-500 to-slate-500"
+      case "therapist-en-route":
+        return "bg-gradient-to-r from-purple-500 to-pink-500"
       default:
-        return "bg-gray-500"
+        return "bg-gradient-to-r from-gray-500 to-slate-500"
     }
   }
 
@@ -461,6 +601,8 @@ export default function BookingsPage() {
         return "Upcoming"
       case "completed":
         return "Completed"
+      case "therapist-en-route":
+        return "On the Way"
       default:
         return status
     }
@@ -476,6 +618,10 @@ export default function BookingsPage() {
   }
 
   const handleView = (bookingId: string, booking: Booking) => {
+    if(booking.status === 'therapist-en-route'){
+      setActiveEnRouteBooking(booking)
+      return
+    }
     setActiveBooking({ id: bookingId, booking })
   }
 
@@ -483,150 +629,188 @@ export default function BookingsPage() {
     setActiveBooking(null)
   }
 
+  const handleCloseEnRoute = () => {
+    setActiveEnRouteBooking(null)
+  }
+
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 pb-20">
       <MobileHeader title="My Massage Bookings" />
 
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-6">
         {bookings.length === 0 ? (
-          <div className="text-center py-12 space-y-4">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-16 space-y-6"
+          >
             <div className="flex justify-center">
-              <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center">
-                <Calendar className="h-10 w-10 text-muted-foreground" />
+              <div className="h-24 w-24 rounded-3xl bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center shadow-lg">
+                <Calendar className="h-12 w-12 text-blue-600" />
               </div>
             </div>
-            <div className="space-y-2">
-              <p className="font-medium">No massage bookings</p>
-              <p className="text-sm text-muted-foreground">Book a massage therapist to get started</p>
+            <div className="space-y-3">
+              <p className="font-bold text-2xl text-gray-800">No massage bookings yet</p>
+              <p className="text-gray-600">Book your first massage therapist to get started</p>
             </div>
-            <Button onClick={() => router.push("/home")} className="bg-primary hover:bg-primary/90 text-white">
+            <Button 
+              onClick={() => router.push("/home")} 
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-2xl px-8 py-3 font-semibold shadow-lg transition-all duration-300"
+            >
+              <Zap className="w-5 h-5 mr-2" />
               Find Therapists
             </Button>
-          </div>
+          </motion.div>
         ) : (
           <>
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold">Your Massage Sessions</h2>
-              <p className="text-sm text-muted-foreground">Manage your upcoming and past bookings</p>
-            </div>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-3"
+            >
+              <h2 className="text-2xl font-bold text-gray-800">Your Massage Sessions</h2>
+              <p className="text-gray-600 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-blue-500" />
+                Manage your upcoming and past bookings
+              </p>
+            </motion.div>
 
-            {bookings.map((booking) => (
-              <Card 
-                key={booking.id} 
-                onClick={() => handleView(booking.id, booking)}
-                className="overflow-hidden border-l-4 border-l-green-500 cursor-pointer"
-              >
-                <CardContent className="p-0">
-                  <div className="p-4 space-y-4">
-                    {/* Therapist Info & Status */}
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={booking.therapist.image}
-                          alt={booking.therapist.name}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-green-200"
-                        />
-                        <div>
-                          <h3 className="font-semibold text-lg">{booking.therapist.name}</h3>
-                          <div className="flex items-center gap-1">
-                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                            <span className="text-sm text-muted-foreground">
-                              {booking.therapist.rating} • {booking.service.name}
+            <div className="space-y-4">
+              {bookings.map((booking, index) => (
+                <motion.div
+                  key={booking.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <Card 
+                    onClick={() => handleView(booking.id, booking)}
+                    className="overflow-hidden border-l-4 border-l-green-400 cursor-pointer hover:shadow-xl transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white rounded-3xl border-0 shadow-lg"
+                  >
+                    <CardContent className="p-0">
+                      <div className="p-5 space-y-4">
+                        {/* Therapist Info & Status */}
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="relative">
+                              <img
+                                src={booking.therapist.image}
+                                alt={booking.therapist.name}
+                                className="w-14 h-14 rounded-2xl object-cover border-2 border-green-200 shadow-md"
+                              />
+                              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white"></div>
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-lg text-gray-800">{booking.therapist.name}</h3>
+                              <div className="flex items-center gap-2">
+                                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                                <span className="text-sm text-gray-600">
+                                  {booking.therapist.rating} • {booking.service.name}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <Badge className={`${getStatusColor(booking.status)} text-white capitalize rounded-full px-3 py-1 font-semibold shadow-md`}>
+                            {getStatusText(booking.status)}
+                          </Badge>
+                        </div>
+
+                        {/* Booking Details */}
+                        <div className="space-y-3 bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl p-4 border border-gray-100">
+                          <div className="flex items-center gap-3 text-gray-700">
+                            <Calendar className="h-5 w-5 text-blue-600" />
+                            <span className="font-medium">
+                              {booking.date} at {booking.startTime}
                             </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-gray-700">
+                            <MapPin className="h-5 w-5 text-green-600" />
+                            <span className="font-medium">{booking.address}</span>
+                          </div>
+                          <div className="flex items-center gap-3 text-gray-700">
+                            <Clock className="h-5 w-5 text-purple-600" />
+                            <span className="font-medium">{booking.service.duration} minutes • R{booking.service.price}</span>
+                          </div>
+                        </div>
+
+                        {/* Price & Actions */}
+                        <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+                          <div>
+                            <p className="text-xl font-bold text-gray-800">R{booking.service.price}</p>
+                            <p className="text-xs text-gray-500">One-time session</p>
+                          </div>
+                          
+                          <div className="flex items-center gap-3">
+                            <div className="flex gap-2">
+                              <Button 
+                                variant="outline" 
+                                size="icon" 
+                                className="h-10 w-10 bg-white border-gray-300 rounded-2xl hover:bg-blue-50 hover:border-blue-300 transition-all"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleContactTherapist(booking.therapist.name)
+                                }}
+                              >
+                                <Phone className="h-5 w-5 text-blue-600" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="icon" 
+                                className="h-10 w-10 bg-white border-gray-300 rounded-2xl hover:bg-green-50 hover:border-green-300 transition-all"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleContactTherapist(booking.therapist.name)
+                                }}
+                              >
+                                <MessageCircle className="h-5 w-5 text-green-600" />
+                              </Button>
+                            </div>
+                            
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="gap-2 bg-white border-gray-300 rounded-2xl hover:bg-gray-50 font-semibold transition-all"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleViewDetails(booking.id)
+                              }}
+                            >
+                              Details
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
                       </div>
-                      <Badge className={`${getStatusColor(booking.status)} text-white capitalize`}>
-                        {getStatusText(booking.status)}
-                      </Badge>
-                    </div>
-
-                    {/* Booking Details */}
-                    <div className="space-y-2 text-sm bg-gray-50 rounded-lg p-3">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Calendar className="h-4 w-4" />
-                        <span>
-                          {booking.date} at {booking.startTime}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <MapPin className="h-4 w-4" />
-                        <span>{booking.address}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Clock className="h-4 w-4" />
-                        <span>{booking.service.duration} minutes</span>
-                      </div>
-                    </div>
-
-                    {/* Price & Actions */}
-                    <div className="pt-2 border-t flex items-center justify-between">
-                      <div>
-                        <p className="text-lg font-bold text-primary">R{booking.service.price}</p>
-                        <p className="text-xs text-muted-foreground">One-time session</p>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <div className="flex gap-1">
-                          <Button 
-                            variant="outline" 
-                            size="icon" 
-                            className="h-8 w-8 bg-transparent"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleContactTherapist(booking.therapist.name)
-                            }}
-                          >
-                            <Phone className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="icon" 
-                            className="h-8 w-8 bg-transparent"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleContactTherapist(booking.therapist.name)
-                            }}
-                          >
-                            <MessageCircle className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="gap-1 bg-transparent"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleViewDetails(booking.id)
-                          }}
-                        >
-                          Details
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
 
             {/* Completed Bookings Section */}
-            <div className="pt-6 border-t">
-              <h3 className="text-lg font-semibold mb-4">Completed Sessions</h3>
-              <div className="text-center py-8 space-y-2 bg-muted/30 rounded-lg">
-                <Calendar className="h-8 w-8 text-muted-foreground mx-auto" />
-                <p className="text-sm text-muted-foreground">No completed sessions yet</p>
-                <p className="text-xs text-muted-foreground">Your completed massages will appear here</p>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="pt-8 border-t border-gray-200"
+            >
+              <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+                Completed Sessions
+              </h3>
+              <div className="text-center py-12 space-y-4 bg-gradient-to-br from-gray-50 to-slate-100 rounded-3xl border-2 border-dashed border-gray-300">
+                <Calendar className="h-12 w-12 text-gray-400 mx-auto" />
+                <div className="space-y-2">
+                  <p className="font-semibold text-gray-700">No completed sessions yet</p>
+                  <p className="text-sm text-gray-500 max-w-sm mx-auto">Your completed massage sessions will appear here for easy access and rebooking</p>
+                </div>
               </div>
-            </div>
+            </motion.div>
           </>
         )}
       </div>
 
-      <BottomNav />
-
-      {/* Booking View Modal */}
+      {/* Active Booking Modal */}
       {activeBooking && (
         <BookingViewModal
           bookingId={activeBooking.id}
@@ -634,6 +818,17 @@ export default function BookingsPage() {
           onClose={handleCloseView}
         />
       )}
+
+      {/* Therapist En Route Modal */}
+      {activeEnRouteBooking && (
+        <TherapistEnRoute
+          booking={activeEnRouteBooking}
+          onTherapistArrived={handleTherapistArrived}
+          onClose={handleCloseEnRoute}
+        />
+      )}
+
+      <BottomNav />
     </div>
   )
 }

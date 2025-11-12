@@ -1,57 +1,50 @@
-Week 1
-✓ React + Next.js 14 with TypeScript
-✓ Beauty industry design system (cosmetic color palette)
-✓ User roles: Student, Instructor, Admin
-✓ Course categories: Makeup, Skincare, Hair, Nails
-✓ Course discovery and search functionality
-✓ Instructor onboarding interface
-✓ Responsive design for all devices
+loyalty for cuatoers and therapsist incentives (free massages , discounts  credits) 
+security
+remove experience in years, allow new therpapists as we need users
+alerts for duration 
+panic button/selfie check adminm RubGo artner mobile app will send applications with videio recodings and create review worfklow
+and screens/wizard
+in-app  access codes for therapists
+R50 travel fee for all requests
+no cash
+Master chat funtion for admin to chat directly with  any therapist or customer.
+45 minute lead time on bookings, partner app will be on "Prepatation" status until they reay to start session
+CRM weekly payments to therapists automated job
+send details of design patent
 
-Week 2
-✓ AWS S3 + CloudFront CDN for video streaming
-✓ Video upload portal with progress tracking
-✓ Course creation wizard for instructors
-✓ Content management system
-✓ Digital asset management
-✓ Course preview system
 
-Week 3
-✓ Individual course pricing 
-✓ PayFast integration with credit/debit cards
-✓ Mobile money and EFT options
-✓ One-time purchase flow
-✓ Course access control post-payment
-✓ Purchase history and receipts
-✓ Refund policy automation
 
-Week 4
-✓ AI quiz and theory assessment
-✓ Skincare routine evaluation
-✓ Instant feedback generation
-✓ Enhanced video player with bookmarking
-✓ Course progress tracking
-✓ Downloadable resources
 
-Week 5
-✓ Note-taking functionality
-✓ Discussion forums per course
-✓ Q&A sections with instructors
-✓ Practice exercise submissions
 
-Week 6
-✓ AI-generated performance analytics
-✓ Downloadable certificates with QR codes
-✓ Skill progression tracking
-✓ Portfolio building tools
-✓ Course completion analytics
-✓ Instructor performance dashboards
+Video Assessments
+Technical assessment videos demonstrating your massage techniques
 
-Week 7
-✓ ChatGPT-4 integration as beauty tutor
-✓ Mobile optimization complete
-✓ Performance testing and optimization
-✓ SEO and marketing site integration
-✓ Analytics and tracking implementation
-✓ Security audit and compliance
-✓ Instructor onboarding materials
-✓ App store preparation (future PWA)
+2:30
+Assessment 1
+Record yourself performing a deep tissue massage on the upper back and explain your technique as you go
+
+Ensure good lighting and clear audio
+Submitted
+3:15
+Assessment 2
+Demonstrate a Swedish massage sequence on the forearm and explain the benefits
+
+Show proper hand positioning and pressure control
+Submitted
+4:20
+Assessment 3
+Explain how you would assess a client with lower back pain before starting treatment
+
+Include client consultation and assessment steps
+Submitted
+Assessment Questions Completed
+Record yourself doing a deep tissue massage and explain as you go
+Demonstrate proper stretching techniques for hamstrings
+Show your approach to treating shoulder tension
+Explain your safety protocols during massage sessions
+Demonstrate communication with a client during session
+Show your setup and preparation process
+Explain how you adapt techniques for different body types
+Demonstrate pressure control on sensitive areas
+Show your post-massage aftercare advice
+Explain how you handle client discomfort during session
