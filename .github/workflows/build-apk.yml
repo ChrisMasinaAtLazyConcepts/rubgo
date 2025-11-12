@@ -1,18 +1,12 @@
-name: Build and Deploy Android APK
+name: Build Android APK
 
 on:
   push:
-    branches: [ master ]
-  release:
-    types: [created]
-
-env:
-  NODE_VERSION: '18'
-  JAVA_VERSION: '17'
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   build:
-    name: Build APK
     runs-on: ubuntu-latest
     
     steps:
@@ -22,66 +16,37 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ env.NODE_VERSION }}
+        node-version: '18'
         cache: 'npm'
         
-    - name: Install dependencies
-      run: npm ci
+    - name: Install dependencies with legacy peer deps
+      run: npm ci --legacy-peer-deps
       
     - name: Build Next.js app
-      run: |
-        npm run build
-        ls -la .next/
+      run: npm run build
       
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
-        java-version: ${{ env.JAVA_VERSION }}
+        java-version: '17'
         
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       
-    - name: Install Capacitor
+    - name: Install Capacitor and sync
       run: |
-        echo "Installing Capacitor..."
-        npm install @capacitor/cli @capacitor/core @capacitor/android
+        npm install @capacitor/cli @capacitor/core @capacitor/android --legacy-peer-deps
         npx cap sync
-        ls -la android/app/src/main/assets/public/
       
-    - name: Build Debug APK
+    - name: Build APK
       run: |
         cd android
-        chmod +x gradlew
-        ./gradlew assembleDebug --stacktrace
-        
-    - name: Build Release APK
-      run: |
-        cd android
-        ./gradlew assembleRelease --stacktrace
-        
-    - name: List APK files
-      run: |
-        find android/app/build/outputs -name "*.apk" -type f
+        ./gradlew assembleDebug
       
-    - name: Upload Debug APK
+    - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
-        name: rubgo-debug-apk
+        name: rubgo-app-debug
         path: android/app/build/outputs/apk/debug/app-debug.apk
         retention-days: 30
-        
-    - name: Upload Release APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: rubgo-release-apk
-        path: android/app/build/outputs/apk/release/app-release.apk
-        retention-days: 30
-        
-    - name: Create GitHub Release
-      if: github.event_name == 'release'
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          android/app/build/outputs/apk/release/app-release.apk
-          android/app/build/outputs/apk/debug/app-debug.apk
