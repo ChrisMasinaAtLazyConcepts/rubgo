@@ -2,7 +2,7 @@
   "name": "rubhub",
   "version": "1.0.0",
   "private": true,
-"scripts": {
+  "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -70,6 +70,7 @@
     "zod": "3.25.67"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@tailwindcss/postcss": "^4.1.9",
     "@types/google.maps": "^3.58.1",
     "@types/node": "^22",
