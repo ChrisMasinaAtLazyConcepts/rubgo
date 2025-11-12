@@ -39,18 +39,16 @@ jobs:
         
         # Create a basic index.html if it doesn't exist
         if [ ! -f "out/index.html" ]; then
-          cat > out/index.html << 'EOF'
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>RubHub</title>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            </head>
-            <body>
-                <div id="root">Loading RubHub...</div>
-            </body>
-            </html>
-            EOF
+          echo '<!DOCTYPE html>
+                <html>
+                <head>
+                    <title>RubHub</title>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                </head>
+                <body>
+                    <div id="root">Loading RubHub...</div>
+                </body>
+                </html>' > out/index.html
         fi
         
         # Create required Capacitor config files
