@@ -1,0 +1,39 @@
+{
+  "logo": "assets/icon.png",
+  "logoBackgroundColor": "#ffffff",
+  "ios": {
+    "logo": {
+      "source": "assets/icon.png",
+      "backgroundColor": "#ffffff"
+    },
+    "splash": {
+      "source": "assets/splash.png",
+      "backgroundColor": "#ffffff",
+      "resize": "cover"
+    },
+    "xcodeAssets": "ios/App/App/Assets.xcassets"
+  },
+  "android": {
+    "logo": {
+      "source": "assets/icon.png",
+      "backgroundColor": "#ffffff"
+    },
+    "splash": {
+      "source": "assets/splash.png",
+      "backgroundColor": "#ffffff",
+      "resize": "cover"
+    },
+    "resDirectory": "android/app/src/main/res"
+  },
+  "web": {
+    "logo": {
+      "source": "assets/icon.png",
+      "backgroundColor": "#ffffff"
+    },
+    "splash": {
+      "source": "assets/splash.png",
+      "backgroundColor": "#ffffff",
+      "resize": "cover"
+    }
+  }
+}
