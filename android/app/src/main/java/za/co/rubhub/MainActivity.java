@@ -1,13 +1,24 @@
 package za.co.rubhub;
 
+import android.os.Bundle;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.os.Build;
+
 import com.getcapacitor.BridgeActivity;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends BridgeActivity {
     private WebView webView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // Initialize Capacitor Bridge first
+        this.init(savedInstanceState, new ArrayList<>());
+        
+        // Now set your custom layout
         setContentView(R.layout.activity_main);
 
         webView = findViewById(R.id.webView);
