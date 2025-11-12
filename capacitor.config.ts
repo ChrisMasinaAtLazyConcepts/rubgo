@@ -2,7 +2,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.rubhub.mobile',
+  appId: 'za.co.rubhub',
   appName: 'RubHub',
   webDir: 'public', // Point to public directory
   server: {

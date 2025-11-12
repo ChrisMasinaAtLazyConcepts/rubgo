@@ -60,8 +60,7 @@ function BookingViewModal({ bookingId, booking, onClose }: BookingViewModalProps
 
   const views = {
    'in-progress': (
-  <div className="bg-gradient-to-br from-slate-900 via-green-900 to-slate-900 fixed inset-0 z-50 flex flex-col">
-    <Button
+ <div className="bg-gradient-to-br from-gray-300 via-gray-200 to-gray-400 fixed inset-0 z-50 flex flex-col">  <Button
       variant="ghost"
       size="icon"
       onClick={onClose}
