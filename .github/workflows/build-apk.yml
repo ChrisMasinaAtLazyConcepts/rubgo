@@ -32,7 +32,7 @@ jobs:
       run: npm run build
       
     - name: Install Capacitor assets CLI
-      run: npm install @capacitor/assets --save-dev
+      run: npm install @capacitor/assets --save-dev --legacy-peer-deps
       
     - name: Create placeholder assets if missing
       run: |
