@@ -2,17 +2,20 @@
 
 import { Therapist, MassageService } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { X, Clock, MapPin, Star, User, Phone, MessageCircle, CreditCard, Plus, Check } from "lucide-react"
+import { X, Clock, MapPin, Star, User, Phone, MessageCircle, CreditCard, Plus, Check, Users } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 
 interface BookingLoadingProps {
-  therapist: Therapist
-  service: any
+  therapist?: Therapist
+  service?: any
   isOpen: boolean
   onCancel: () => void
-  onContact: () => void
-  onManagePayment: () => void
+  onContact?: () => void
+  onManagePayment?: () => void
+  cartItems?: any[]
+  bookingType?: 'individual' | 'group'
 }
 
 export function BookingLoading({ 
@@ -21,11 +24,35 @@ export function BookingLoading({
   isOpen, 
   onCancel, 
   onContact,
-  onManagePayment 
+  onManagePayment,
+  cartItems = [],
+  bookingType = 'individual'
 }: BookingLoadingProps) {
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
+  const router = useRouter()
+
+  // Get cart items from session storage if not provided via props
+  const [storedCartItems, setStoredCartItems] = useState<any[]>([])
+  const [storedBookingType, setStoredBookingType] = useState<'individual' | 'group'>('individual')
+
+  useEffect(() => {
+    // Load cart items and booking type from session storage
+    const storedItems = sessionStorage.getItem('cartItems')
+    const storedType = sessionStorage.getItem('bookingType') as 'individual' | 'group'
+    
+    if (storedItems) {
+      setStoredCartItems(JSON.parse(storedItems))
+    }
+    if (storedType) {
+      setStoredBookingType(storedType)
+    }
+  }, [])
+
+  // Use provided cart items or fall back to stored ones
+  const finalCartItems = cartItems.length > 0 ? cartItems : storedCartItems
+  const finalBookingType = bookingType || storedBookingType
 
   // Mock payment methods - in real app, fetch from user profile
   const paymentMethods = [
@@ -54,9 +81,6 @@ export function BookingLoading({
     }
   }
 
-  // Remove the useEffect that automatically triggers processing
-  // Processing should only start when handlePaymentSelect is called
-
   const handlePaymentSelect = (paymentId: string) => {
     setSelectedPayment(paymentId)
     setIsProcessing(true)
@@ -66,6 +90,12 @@ export function BookingLoading({
       setCurrentStep(prev => {
         if (prev >= 2) {
           clearInterval(stepInterval)
+          
+          // Redirect to success page after completion
+          setTimeout(() => {
+            router.push('/bookings/confirmed')
+          }, 1000)
+          
           return prev
         }
         return prev + 1
@@ -81,6 +111,35 @@ export function BookingLoading({
     if (stepIndex < currentStep) return "completed"
     if (stepIndex === currentStep) return "processing"
     return "pending"
+  }
+
+  // Calculate total price for group bookings
+  const calculateTotal = () => {
+    if (finalBookingType === 'individual' && service) {
+      return Math.round(service.price * 1.15)
+    }
+    
+    // For group bookings, sum all cart items
+    const subtotal = finalCartItems.reduce((sum, item) => sum + (item.price || 0), 0)
+    const serviceFee = Math.round(subtotal * 0.15)
+    return subtotal + serviceFee
+  }
+
+  // Calculate service fee
+  const calculateServiceFee = () => {
+    if (finalBookingType === 'individual' && service) {
+      return Math.round(service.price * 0.15)
+    }
+    
+    const subtotal = finalCartItems.reduce((sum, item) => sum + (item.price || 0), 0)
+    return Math.round(subtotal * 0.15)
+  }
+
+  // Get booking title based on type
+  const getBookingTitle = () => {
+    return finalBookingType === 'group' 
+      ? `Group Booking (${finalCartItems.length} sessions)`
+      : service?.name || "Therapy Session"
   }
 
   return (
@@ -112,7 +171,10 @@ export function BookingLoading({
                     {!selectedPayment ? "Select Payment" : "Confirm Booking"}
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">
-                    {!selectedPayment ? "Choose how you'd like to pay" : "Securing your appointment"}
+                    {!selectedPayment 
+                      ? "Choose how you'd like to pay" 
+                      : finalBookingType === 'group' ? "Securing group appointments" : "Securing your appointment"
+                    }
                   </p>
                 </div>
                 <Button
@@ -129,36 +191,64 @@ export function BookingLoading({
             {/* Content - Scrollable */}
             <div className="flex-1 overflow-y-auto">
               <div className="p-6">
-                {/* Therapist & Service Summary */}
+                {/* Booking Summary */}
                 <div className="bg-gray-50 rounded-xl p-4 mb-6 border border-gray-200">
-                  <div className="flex items-center gap-3 mb-3">
-                    <img
-                      src={therapist.image}
-                      alt={therapist.name}
-                      className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 truncate">{therapist.name}</h3>
-                      <div className="flex items-center gap-1 text-sm text-gray-600">
-                        <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
-                        <span>{therapist.rating} • {therapist.reviews} reviews</span>
+                  {/* Booking Type Badge */}
+                  {finalBookingType === 'group' && (
+                    <div className="flex items-center gap-2 mb-3 text-blue-600">
+                      <Users size={16} />
+                      <span className="text-sm font-medium">Group Booking</span>
+                    </div>
+                  )}
+                  
+                  {/* Therapist Info (only for individual or if all items have same therapist) */}
+                  {therapist && (
+                    <div className="flex items-center gap-3 mb-3">
+                      <img
+                        src={therapist.image}
+                        alt={therapist.name}
+                        className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 truncate">{therapist.name}</h3>
+                        <div className="flex items-center gap-1 text-sm text-gray-600">
+                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
+                          <span>{therapist.rating} • {therapist.reviews} reviews</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                   
                   <div className="space-y-2 text-sm">
+                    {/* Service/Booking Details */}
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">{service?.name || "Therapy Session"}</span>
-                      <span className="font-medium text-gray-900">R{service?.price || "350"}</span>
+                      <span className="text-gray-600">{getBookingTitle()}</span>
+                      <span className="font-medium text-gray-900">
+                        {finalBookingType === 'individual' 
+                          ? `R${service?.price || "350"}`
+                          : `R${finalCartItems.reduce((sum, item) => sum + (item.price || 0), 0)}`
+                        }
+                      </span>
                     </div>
+                    
+                    {/* Show group booking breakdown */}
+                    {finalBookingType === 'group' && finalCartItems.map((item, index) => (
+                      <div key={index} className="flex justify-between items-center pl-4 text-xs">
+                        <span className="text-gray-500 truncate flex-1 mr-2">
+                          {item.name || `Session ${index + 1}`}
+                        </span>
+                        <span className="text-gray-500 font-medium">R{item.price || 0}</span>
+                      </div>
+                    ))}
+                    
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Service Fee</span>
-                      <span className="font-medium text-gray-900">R{Math.round((service?.price || 350) * 0.15)}</span>
+                      <span className="font-medium text-gray-900">R{calculateServiceFee()}</span>
                     </div>
                     <div className="border-t border-gray-200 pt-2 flex justify-between items-center font-semibold">
                       <span className="text-gray-900">Total</span>
                       <span className="text-green-600 text-base">
-                        R{Math.round((service?.price || 350) * 1.15)}
+                        R{calculateTotal()}
                       </span>
                     </div>
                   </div>
@@ -250,9 +340,14 @@ export function BookingLoading({
                         </div>
                       </div>
                       
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Securing your booking</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        {finalBookingType === 'group' ? 'Securing group bookings' : 'Securing your booking'}
+                      </h3>
                       <p className="text-gray-600 text-sm">
-                        We're confirming {therapist.name}'s availability and processing your payment...
+                        {finalBookingType === 'group' 
+                          ? `We're confirming ${finalCartItems.length} appointments and processing your payment...`
+                          : `We're confirming ${therapist?.name}'s availability and processing your payment...`
+                        }
                       </p>
                     </div>
 
@@ -260,8 +355,16 @@ export function BookingLoading({
                     <div className="space-y-4">
                       {[
                         { label: "Payment processing" },
-                        { label: "Confirming therapist availability" },
-                        { label: "Securing your time slot" }
+                        { 
+                          label: finalBookingType === 'group' 
+                            ? "Confirming therapist availability" 
+                            : "Confirming all therapist availabilities"
+                        },
+                        { 
+                          label: finalBookingType === 'group'
+                            ? "Securing all time slots"
+                            : "Securing your time slot"
+                        }
                       ].map((step, index) => (
                         <div key={index} className="flex items-center gap-3">
                           <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 ${
@@ -285,24 +388,26 @@ export function BookingLoading({
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex gap-3 pt-2">
-                      <Button
-                        variant="outline"
-                        onClick={onContact}
-                        className="flex-1 flex items-center gap-2 h-12 border-2"
-                      >
-                        <MessageCircle size={18} />
-                        Message
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={onContact}
-                        className="flex-1 flex items-center gap-2 h-12 border-2"
-                      >
-                        <Phone size={18} />
-                        Call
-                      </Button>
-                    </div>
+                    {onContact && (
+                      <div className="flex gap-3 pt-2">
+                        <Button
+                          variant="outline"
+                          onClick={onContact}
+                          className="flex-1 flex items-center gap-2 h-12 border-2"
+                        >
+                          <MessageCircle size={18} />
+                          Message
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={onContact}
+                          className="flex-1 flex items-center gap-2 h-12 border-2"
+                        >
+                          <Phone size={18} />
+                          Call
+                        </Button>
+                      </div>
+                    )}
 
                     {/* Security & Timing Info */}
                     <div className="space-y-3">
@@ -317,7 +422,7 @@ export function BookingLoading({
                         <div className="flex items-center gap-2 text-blue-700">
                           <Clock size={16} />
                           <span className="text-sm font-medium">
-                            Usually confirmed within {therapist.responseTime || 2} minutes
+                            Usually confirmed within {therapist?.responseTime || 2} minutes
                           </span>
                         </div>
                       </div>

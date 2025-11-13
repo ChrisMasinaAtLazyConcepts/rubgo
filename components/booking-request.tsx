@@ -113,7 +113,7 @@ export function BookingRequest({
                 className="w-full bg-[#10B981] hover:bg-[#0da271] text-white font-semibold py-3 text-lg rounded-xl"
                 size="lg"
               >
-                Confirm Booking
+                Add to Cart
               </Button>
             </div>
           </motion.div>

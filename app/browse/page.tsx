@@ -18,7 +18,6 @@ interface Therapist {
   reviews: number
   rate: number
   specialization: string[]
-  experience: number
   distance: number
   available: boolean
   nextAvailable: string
@@ -32,7 +31,6 @@ interface FilterState {
   priceRange: [number, number]
   specialization: string[]
   rating: number
-  experience: number
   availability: string
   distance: number
 }
@@ -46,7 +44,6 @@ export default function SearchPage() {
     priceRange: [200, 800],
     specialization: [],
     rating: 0,
-    experience: 0,
     availability: "any",
     distance: 10
   })
@@ -61,12 +58,11 @@ export default function SearchPage() {
       reviews: 127,
       rate: 650,
       specialization: ["Swedish Massage", "Deep Tissue", "Sports Massage"],
-      experience: 8,
       distance: 1.2,
       available: true,
       nextAvailable: "14:00",
       location: "Sandton",
-      bio: "Certified massage therapist with 8 years of experience specializing in therapeutic and relaxation massage.",
+      bio: "Certified massage therapist specializing in therapeutic and relaxation massage.",
       languages: ["English", "Zulu"],
       verified: true
     },
@@ -78,7 +74,6 @@ export default function SearchPage() {
       reviews: 89,
       rate: 550,
       specialization: ["Deep Tissue", "Trigger Point", "Myofascial Release"],
-      experience: 6,
       distance: 2.5,
       available: true,
       nextAvailable: "15:30",
@@ -95,7 +90,6 @@ export default function SearchPage() {
       reviews: 203,
       rate: 750,
       specialization: ["Aromatherapy", "Hot Stone", "Prenatal Massage"],
-      experience: 10,
       distance: 3.1,
       available: false,
       nextAvailable: "Tomorrow",
@@ -112,7 +106,6 @@ export default function SearchPage() {
       reviews: 64,
       rate: 450,
       specialization: ["Thai Massage", "Reflexology", "Cupping Therapy"],
-      experience: 5,
       distance: 4.2,
       available: true,
       nextAvailable: "16:00",
@@ -129,7 +122,6 @@ export default function SearchPage() {
       reviews: 156,
       rate: 600,
       specialization: ["Lymphatic Drainage", "Swedish Massage", "Geriatric Massage"],
-      experience: 7,
       distance: 1.8,
       available: true,
       nextAvailable: "13:45",
@@ -171,15 +163,13 @@ export default function SearchPage() {
                                 )
     
     const matchesRating = therapist.rating >= filters.rating
-    const matchesExperience = therapist.experience >= filters.experience
     const matchesPrice = therapist.rate >= filters.priceRange[0] && 
                         therapist.rate <= filters.priceRange[1]
     const matchesDistance = therapist.distance <= filters.distance
     const matchesAvailability = filters.availability === "any" || 
                                (filters.availability === "available" && therapist.available)
 
-    return matchesSearch && matchesSpecialization && matchesRating && 
-           matchesExperience && matchesPrice && matchesDistance && matchesAvailability
+    return matchesSearch && matchesSpecialization && matchesRating  && matchesPrice && matchesDistance && matchesAvailability
   })
 
   const handleSpecializationToggle = (spec: string) => {
@@ -196,7 +186,6 @@ export default function SearchPage() {
       priceRange: [200, 800],
       specialization: [],
       rating: 0,
-      experience: 0,
       availability: "any",
       distance: 10
     })
@@ -278,22 +267,6 @@ export default function SearchPage() {
             </div>
           </div>
 
-          {/* Experience */}
-          <div>
-            <h3 className="font-medium mb-3">Minimum Experience</h3>
-            <div className="flex gap-2">
-              {[0, 3, 5, 8].map(exp => (
-                <Button
-                  key={exp}
-                  variant={filters.experience === exp ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilters(prev => ({ ...prev, experience: exp }))}
-                >
-                  {exp === 0 ? "Any" : `${exp}+ years`}
-                </Button>
-              ))}
-            </div>
-          </div>
 
           {/* Availability */}
           <div>
@@ -385,13 +358,10 @@ export default function SearchPage() {
             </div>
           </div>
 
-          {/* Experience & Availability */}
+          {/*  Availability */}
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1">
-                <Sparkles className="h-4 w-4 text-blue-500" />
-                <span>{therapist.experience} years exp</span>
-              </div>
+             
               <div className="flex items-center gap-1">
                 <Clock className="h-4 w-4 text-green-500" />
                 <span className={therapist.available ? "text-green-600" : "text-orange-600"}>
@@ -465,7 +435,7 @@ export default function SearchPage() {
         </div>
 
         {/* Active Filters */}
-        {(filters.specialization.length > 0 || filters.rating > 0 || filters.experience > 0) && (
+        {(filters.specialization.length > 0 || filters.rating > 0 ) && (
           <div className="flex flex-wrap gap-2">
             {filters.specialization.map(spec => (
               <Badge key={spec} variant="secondary" className="flex items-center gap-1">
@@ -485,15 +455,7 @@ export default function SearchPage() {
                 />
               </Badge>
             )}
-            {filters.experience > 0 && (
-              <Badge variant="secondary" className="flex items-center gap-1">
-                {filters.experience}+ years
-                <X 
-                  className="h-3 w-3 cursor-pointer" 
-                  onClick={() => setFilters(prev => ({ ...prev, experience: 0 }))}
-                />
-              </Badge>
-            )}
+           
           </div>
         )}
 

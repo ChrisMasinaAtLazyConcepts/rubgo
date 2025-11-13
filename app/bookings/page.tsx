@@ -66,7 +66,7 @@ function BookingViewModal({ bookingId, booking, onClose }: BookingViewModalProps
       onClick={onClose}
       className="absolute top-4 right-4 z-10 bg-white/10 backdrop-blur-sm text-white hover:bg-white/20"
     >
-      <X size={24} />
+      <X className="bg-gray-300" size={24} />
     </Button>
     
     {/* Animated Background */}
@@ -84,7 +84,7 @@ function BookingViewModal({ bookingId, booking, onClose }: BookingViewModalProps
         {/* Session Image - Fixed sizing */}
         <div className="relative mb-8 w-full h-48 bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
           <img 
-            src="./assets/splash.gif" 
+            src="./assets/progress.gif" 
             alt="Massage in progress" 
             className="w-full h-full object-cover"
           />

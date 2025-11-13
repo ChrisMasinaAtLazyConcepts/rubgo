@@ -62,6 +62,9 @@ export default function HomePage() {
   }>>([])
   const [showCart, setShowCart] = useState(false)
 
+  // FIXED: Added missing showBookingLoading state
+  const [showBookingLoading, setShowBookingLoading] = useState(false)
+
   const [filters, setFilters] = useState<FilterOptions>({
     type: "all",
     serviceType: "all",
@@ -357,13 +360,14 @@ export default function HomePage() {
     return group?.maxParticipants || 2
   }
 
-  // Handle cart click
+  // Handle cart click - UPDATED: Always show cart when clicked
   const handleCartClick = () => {
-    if (cartItems.length > 0) {
-      setShowCart(true)
-    } else {
-      setShowGroupMenu(true)
-    }
+    setShowCart(true)
+  }
+
+  // Handle group booking FAB click
+  const handleGroupBookingClick = () => {
+    setShowGroupMenu(true)
   }
 
   // Remove item from cart
@@ -377,14 +381,35 @@ export default function HomePage() {
     setShowCart(false)
   }
 
-  // Proceed to checkout
+  // FIXED: Updated handleCheckout function to use showBookingLoading state
   const handleCheckout = () => {
     if (cartItems.length === 0) return
     
-    // Store cart items in session storage for checkout page
+    // Store cart items and booking type in session storage
     sessionStorage.setItem('cartItems', JSON.stringify(cartItems))
+    
+    // Determine booking type (individual or group)
+    const bookingType = cartItems.length > 1 ? 'group' : 'individual'
+    sessionStorage.setItem('bookingType', bookingType)
+    
     setShowCart(false)
-    router.push('/checkout')
+    // Open the BookingLoading component modal instead of routing
+    setShowBookingLoading(true)
+  }
+
+  // Handle BookingLoading component events
+  const handleBookingLoadingCancel = () => {
+    setShowBookingLoading(false)
+  }
+
+  const handleContactTherapist = () => {
+    // Your contact logic here
+    console.log("Contact therapist")
+  }
+
+  const handleManagePayment = () => {
+    // Your payment management logic here
+    console.log("Manage payment")
   }
 
   // Calculate cart total
@@ -412,20 +437,36 @@ export default function HomePage() {
             <p className="text-sm font-medium text-gray-900">Your Location</p>
           </div>
 
-          {/* Green Cart FAB - Positioned in top right corner */}
-          <button
-            onClick={handleCartClick}
-            className="absolute top-4 right-4 w-14 h-14 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 z-30 hover:scale-105 active:scale-95 border-2 border-white"
-          >
-            <div className="relative">
-              <ShoppingCart className="w-6 h-6" />
-              {cartItems.length > 0 && (
-                <div className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
-                  {cartItems.length}
-                </div>
-              )}
-            </div>
-          </button>
+          {/* FAB Buttons Container */}
+          <div className="absolute top-4 right-4 flex flex-col gap-3 z-30">
+            {/* Cart FAB - Grey when empty, Green when has items */}
+            <button
+              onClick={handleCartClick}
+              className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 border-2 border-white ${
+                cartItems.length > 0 
+                  ? 'bg-green-600 hover:bg-green-700 text-white' 
+                  : 'bg-gray-400 hover:bg-gray-500 text-gray-200 cursor-not-allowed'
+              }`}
+              disabled={cartItems.length === 0}
+            >
+              <div className="relative">
+                <ShoppingCart className="w-6 h-6" />
+                {cartItems.length > 0 && (
+                  <div className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    {cartItems.length}
+                  </div>
+                )}
+              </div>
+            </button>
+
+            {/* Group Booking FAB - Sky Blue with Plus Icon */}
+            <button
+              onClick={handleGroupBookingClick}
+              className="w-14 h-14 bg-sky-200 hover:bg-sky-600 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 border-2 border-white"
+            >
+              <Plus className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         {/* Therapists List */}
@@ -478,13 +519,15 @@ export default function HomePage() {
 
       {/* Cart Summary Modal */}
       {showCart && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-gray-100 bg-opacity-50 flex items-end justify-center z-50 p-4">
           <div className="bg-white rounded-t-2xl w-full max-w-md max-h-[80vh] overflow-y-auto border border-gray-200 shadow-xl">
             <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-2xl">
-              <div className="flex justify-between items-center">
+              <div className="mt-1 flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-bold">Your Cart</h2>
-                  <p className="text-green-100 text-sm mt-1">{totalItems} massage orders</p>
+                  <p className="text-green-100 text-sm mt-1">
+                    {cartItems.length > 0 ? `${totalItems} massage orders` : 'Your cart is empty'}
+                  </p>
                 </div>
                 <button
                   onClick={() => setShowCart(false)}
@@ -528,16 +571,29 @@ export default function HomePage() {
               {cartItems.length === 0 && (
                 <div className="text-center py-8">
                   <ShoppingCart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">Your cart is empty</p>
-                  <Button
-                    onClick={() => {
-                      setShowCart(false)
-                      setShowGroupMenu(true)
-                    }}
-                    className="mt-3 bg-green-600 hover:bg-green-700"
-                  >
-                    Start Group Booking
-                  </Button>
+                  <p className="text-gray-500 mb-4">Your cart is empty</p>
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={() => {
+                        setShowCart(false)
+                        // Optionally scroll to therapists list or show booking options
+                      }}
+                      variant="outline"
+                      className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+                    >
+                      Browse Therapists
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setShowCart(false)
+                        setShowGroupMenu(true)
+                      }}
+                      className="flex-1 bg-sky-500 hover:bg-sky-600 text-white"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Group Booking
+                    </Button>
+                  </div>
                 </div>
               )}
 
@@ -584,11 +640,21 @@ export default function HomePage() {
         />
       )}
 
+      {/* FIXED: BookingLoading Component */}
+      <BookingLoading
+        isOpen={showBookingLoading}
+        onCancel={handleBookingLoadingCancel}
+        onContact={handleContactTherapist}
+        onManagePayment={handleManagePayment}
+        cartItems={cartItems}
+        bookingType={cartItems.length > 1 ? 'group' : 'individual'}
+      />
+
       {/* Group Booking Menu Modal */}
       {showGroupMenu && (
         <div className="fixed inset-0 bg-gray-100 bg-opacity-50 flex items-end justify-center z-50 p-4">
           <div className="bg-white rounded-t-2xl w-full max-w-md max-h-[85vh] overflow-y-auto border border-gray-200 shadow-xl">
-            <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-2xl">
+            <div className="fixed top-5 left-5 right-5 bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-2xl">
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-bold">New Group Session</h2>

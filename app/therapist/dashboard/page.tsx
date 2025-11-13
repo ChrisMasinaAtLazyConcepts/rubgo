@@ -3,8 +3,33 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { Calendar, Users, Star, MessageCircle, TrendingUp, Clock, MapPin, ChevronRight, CreditCard, FileText, Settings, Bell, Zap, Wallet, BarChart3, Plus, Download, Award, Shield, Navigation, X } from "lucide-react"
+import { 
+  Calendar, 
+  Users, 
+  Star, 
+  MessageCircle, 
+  TrendingUp, 
+  Clock, 
+  MapPin, 
+  ChevronRight, 
+  CreditCard, 
+  FileText, 
+  Settings, 
+  Bell, 
+  Zap, 
+  Wallet, 
+  BarChart3, 
+  Plus, 
+  Download, 
+  Award, 
+  Shield, 
+  Navigation, 
+  X, 
+  Car,
+  ExternalLink
+} from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { TherapistBookingRequest } from "@/components/therapist-booking-request"
 
 interface Booking {
   id: string
@@ -36,12 +61,47 @@ interface NotificationData {
   timestamp: Date
 }
 
+interface Client {
+  id: string
+  name: string
+  image: string
+  rating: number
+  reviews: number
+  phone: string
+  email: string
+  joinDate: Date
+}
+
+interface BookingDetails {
+  id: string
+  client: Client
+  service: string
+  duration: number
+  price: number
+  date: Date
+  location: string
+  address: string
+  coordinates: { lat: number; lng: number }
+  specialRequests: string
+  therapistNotes: string
+  distance: number
+  estimatedTravelTime: number
+  serviceFee: number
+  totalAmount: number
+}
+
 export default function TherapistDashboard() {
   const { user } = useAuth()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'earnings' | 'clients'>('overview')
   const [todayBookings, setTodayBookings] = useState<Booking[]>([])
+  const [showBookingRequest, setShowBookingRequest] = useState(false)
+  const [selectedBooking, setSelectedBooking] = useState<BookingDetails | null>(null)
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([])
+  
+  // New state for start options
+  const [showStartOptions, setShowStartOptions] = useState(false)
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null)
   const [stats, setStats] = useState<Stats>({
     totalEarnings: 0,
     completedSessions: 0,
@@ -178,13 +238,69 @@ export default function TherapistDashboard() {
     }
   }
 
-  const handleBookingAction = (bookingId: string, action: 'accept' | 'decline' | 'start' | 'complete') => {
-    console.log(`Booking ${bookingId}: ${action}`)
-    
-    if (action === 'start') {
-      router.push(`/therapist/session/${bookingId}`)
-    }
+const handleBookingAction = (bookingId: string, action: 'accept' | 'decline' | 'start' | 'complete') => {
+  console.log(`Booking ${bookingId}: ${action}`)
+  
+  if (action === 'start') {
+    setSelectedBookingId(bookingId)
+    setShowStartOptions(true)
   }
+}
+
+
+// Handle drive option - opens navigation mode
+const handleDrive = () => {
+  setShowStartOptions(false)
+  // Find the booking details
+  const booking = todayBookings.find(b => b.id === selectedBookingId)
+  if (booking) {
+    // Store booking info for navigation page
+    sessionStorage.setItem('currentSession', JSON.stringify({
+      ...booking,
+      status: 'in-progress',
+      startTime: new Date(),
+      estimatedArrival: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes from now
+    }))
+    router.push('/therapist/navigation')
+  }
+}
+
+// Handle request option - opens ride-hailing apps with location data
+const handleRequestRide = () => {
+  setShowStartOptions(false)
+  const booking = todayBookings.find(b => b.id === selectedBookingId)
+  if (booking) {
+    // Extract and encode location data
+    const destination = encodeURIComponent(booking.location)
+    
+    // Get current location coordinates (you might want to store these)
+    const currentLocation = {
+      lat: -26.1076, // Example: Johannesburg coordinates
+      lng: 28.0567
+    }
+    
+    // Uber Deep Link with coordinates and address
+    const uberUrl = `uber://?action=setPickup&pickup[latitude]=${currentLocation.lat}&pickup[longitude]=${currentLocation.lng}&dropoff[formatted_address]=${destination}`
+    
+    // Alternative Uber URL with just address
+    const uberUrlAlt = `uber://?action=setPickup&pickup=my_location&dropoff[formatted_address]=${destination}`
+    
+    // Bolt Deep Link
+    const boltUrl = `bolt://pickup?destination=${destination}`
+    
+    // Try to open Uber first
+    window.location.href = uberUrl
+    
+    // Fallback mechanism
+    setTimeout(() => {
+      if (!document.hidden) {
+        // If Uber app didn't open, try web version
+        const uberWebUrl = `https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=${destination}`
+        window.open(uberWebUrl, '_blank')
+      }
+    }, 500)
+  }
+}
 
   const handleViewBooking = (bookingId: string) => {
     router.push(`/therapist/booking/${bookingId}`)
@@ -194,9 +310,39 @@ export default function TherapistDashboard() {
     router.push('/therapist/inbox')
   }
 
+  // Update the notification click handler
   const handleNotificationClick = () => {
     if (currentNotification?.bookingId) {
-      setActiveTab('bookings')
+      // Fetch booking details based on bookingId
+      const mockBookingDetails: BookingDetails = {
+        id: currentNotification.bookingId,
+        client: {
+          id: "client-123",
+          name: "Sarah Johnson",
+          image: "/client1.jpg",
+          rating: 4.9,
+          reviews: 27,
+          phone: "+27 12 345 6789",
+          email: "sarah.johnson@example.com",
+          joinDate: new Date(2023, 0, 15)
+        },
+        service: "Deep Tissue Massage",
+        duration: 60,
+        price: 450,
+        date: new Date(Date.now() + 1000 * 60 * 60 * 24), // Tomorrow
+        location: "Client's Home",
+        address: "123 Main Street, Johannesburg, 2000",
+        coordinates: { lat: -26.1076, lng: 28.0567 },
+        specialRequests: "Please bring extra towels and focus on lower back tension",
+        therapistNotes: "Regular client, prefers firm pressure",
+        distance: 3.2,
+        estimatedTravelTime: 15,
+        serviceFee: 45,
+        totalAmount: 405
+      }
+      
+      setSelectedBooking(mockBookingDetails)
+      setShowBookingRequest(true)
     }
     setShowNotification(false)
   }
@@ -275,6 +421,68 @@ export default function TherapistDashboard() {
           </motion.div>
         )}
       </AnimatePresence>
+	  
+	   {/* ADD THIS START OPTIONS MODAL - IT'S MISSING */}
+    {showStartOptions && (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 100 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-gray-200"
+        >
+          <div className="p-6">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Navigation className="w-8 h-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Start Session</h3>
+              <p className="text-gray-600">How would you like to get to your client?</p>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={handleDrive}
+                className="w-full p-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl flex items-center justify-between hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Car className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold">Drive Yourself</div>
+                    <div className="text-sm text-white/80">Use built-in navigation</div>
+                  </div>
+                </div>
+                <MapPin className="w-5 h-5" />
+              </button>
+
+              <button
+                onClick={handleRequestRide}
+                className="w-full p-4 bg-gradient-to-r from-blue-500 to-sky-600 text-white rounded-2xl flex items-center justify-between hover:from-blue-600 hover:to-sky-700 transition-all duration-200 shadow-lg"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold">Request Ride</div>
+                    <div className="text-sm text-white/80">Uber, Bolt, or similar</div>
+                  </div>
+                </div>
+                <ExternalLink className="w-5 h-5" />
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowStartOptions(false)}
+              className="w-full mt-4 p-3 text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    )}
 
       {/* Header */}
       <div className="bg-[#2d3e50] border-b border-[#3a506b] p-4">
@@ -674,6 +882,29 @@ export default function TherapistDashboard() {
           })}
         </div>
       </nav>
+
+      {/* Therapist Booking Request Component */}
+      <TherapistBookingRequest
+        isOpen={showBookingRequest}
+        onClose={() => setShowBookingRequest(false)}
+        onAccept={(bookingId) => {
+          console.log("Accepted booking:", bookingId)
+          setShowBookingRequest(false)
+          // Handle booking acceptance logic
+        }}
+        onDecline={(bookingId) => {
+          console.log("Declined booking:", bookingId)
+          setShowBookingRequest(false)
+          // Handle booking decline logic
+        }}
+        onMessage={(clientId) => {
+          router.push(`/therapist/inbox?client=${clientId}`)
+        }}
+        onCall={(phoneNumber) => {
+          window.open(`tel:${phoneNumber}`, '_blank')
+        }}
+        booking={selectedBooking}
+      />
     </div>
   )
 }

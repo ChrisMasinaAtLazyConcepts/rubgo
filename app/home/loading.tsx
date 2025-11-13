@@ -3,7 +3,7 @@ export default function Loading() {
     <div className="fixed inset-0 bg-white flex items-center justify-center z-50">
       <div className="text-center">
         <img 
-          src="./assets/splash.gif" 
+          src="./assets/progress.gif" 
           alt="Loading..." 
           className="mx-auto w-full h-full"
         />
