@@ -31,16 +31,22 @@ jobs:
     - name: Build Next.js app
       run: npm run build
       
-    - name: Create missing directories and files
+    - name: Install Capacitor assets CLI
+      run: npm install @capacitor/assets --save-dev --legacy-peer-deps
+      
+    - name: Create placeholder assets if missing
       run: |
-        # Create the out directory if it doesn't exist
-        mkdir -p out
-        # Create a simple index.html if it doesn't exist
-        if [ ! -f "out/index.html" ]; then
-          echo '<!DOCTYPE html><html><head><title>RubHub</title></head><body><h1>Loading RubHub...</h1></body></html>' > out/index.html
+        mkdir -p assets
+        if [ ! -f "assets/icon.png" ]; then
+          sudo apt-get update && sudo apt-get install -y imagemagick
+          convert -size 1024x1024 xc:#C6C6C6 assets/icon.png
         fi
-        # Create android assets directory
-        mkdir -p android/app/src/main/assets
+        if [ ! -f "assets/splash.png" ]; then
+          convert -size 2732x2732 xc:#C6C6C6 assets/splash.png
+        fi
+        
+    - name: Generate app icons and splash screens
+      run: npx capacitor-assets generate
       
     - name: Setup Java 21 (Required for Capacitor)
       uses: actions/setup-java@v4
@@ -59,10 +65,6 @@ jobs:
       
     - name: Install Capacitor and sync
       run: |
-        # Create required config files manually
-        mkdir -p android/app/src/main/assets
-        echo '{}' > android/app/src/main/assets/capacitor.config.json
-        echo '{}' > android/app/src/main/assets/capacitor.plugins.json
         npx cap sync
       
     - name: Build APK with Java 21
