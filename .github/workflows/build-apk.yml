@@ -31,24 +31,33 @@ jobs:
     - name: Build Next.js app
       run: npm run build
       
-    - name: Install Capacitor assets CLI
-      run: npm install @capacitor/assets --save-dev --legacy-peer-deps
-      
-    - name: Create placeholder assets if missing
+    - name: Create required directories and files
       run: |
-        mkdir -p assets
-        if [ ! -f "assets/icon.png" ]; then
-          sudo apt-get update && sudo apt-get install -y imagemagick
-          convert -size 1024x1024 xc:#C6C6C6 assets/icon.png
-        fi
-        if [ ! -f "assets/splash.png" ]; then
-          convert -size 2732x2732 xc:#C6C6C6 assets/splash.png
+        # Create the out directory and add basic files
+        mkdir -p out
+        mkdir -p android/app/src/main/assets
+        
+        # Create a basic index.html if it doesn't exist
+        if [ ! -f "out/index.html" ]; then
+          cat > out/index.html << 'EOF'
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>RubHub</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body>
+                <div id="root">Loading RubHub...</div>
+            </body>
+            </html>
+            EOF
         fi
         
-    - name: Generate app icons and splash screens
-      run: npx capacitor-assets generate
-      
-    - name: Setup Java 21 (Required for Capacitor)
+        # Create required Capacitor config files
+        echo '{}' > android/app/src/main/assets/capacitor.config.json
+        echo '{}' > android/app/src/main/assets/capacitor.plugins.json
+        
+    - name: Setup Java 21
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
