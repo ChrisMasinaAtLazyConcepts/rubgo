@@ -1,4 +1,3 @@
-// app/home/page.tsx
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -521,8 +520,9 @@ export default function HomePage() {
       {showCart && (
         <div className="fixed inset-0 bg-gray-100 bg-opacity-50 flex items-end justify-center z-50 p-4">
           <div className="bg-white rounded-t-2xl w-full max-w-md max-h-[80vh] overflow-y-auto border border-gray-200 shadow-xl">
-            <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-2xl">
-              <div className="mt-1 flex justify-between items-center">
+            {/* FIXED: Cart Header - Removed empty space, always at top */}
+            <div className="sticky top-0 bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-2xl z-10">
+              <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-bold">Your Cart</h2>
                   <p className="text-green-100 text-sm mt-1">
@@ -650,11 +650,12 @@ export default function HomePage() {
         bookingType={cartItems.length > 1 ? 'group' : 'individual'}
       />
 
-      {/* Group Booking Menu Modal */}
+      {/* FIXED: Group Booking Menu Modal - Properly implemented */}
       {showGroupMenu && (
         <div className="fixed inset-0 bg-gray-100 bg-opacity-50 flex items-end justify-center z-50 p-4">
           <div className="bg-white rounded-t-2xl w-full max-w-md max-h-[85vh] overflow-y-auto border border-gray-200 shadow-xl">
-            <div className="fixed top-5 left-5 right-5 bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-2xl">
+            {/* FIXED: Group Booking Header - Removed empty space, always at top */}
+            <div className="sticky top-0 bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-2xl z-10">
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-bold">New Group Session</h2>
@@ -669,7 +670,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6 mt-0">
               {/* Group Type Selection */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-gray-900">Select Group Type</h3>
