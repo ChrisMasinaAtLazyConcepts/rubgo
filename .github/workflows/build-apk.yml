@@ -116,7 +116,7 @@ jobs:
     - name: Sync Capacitor (using existing config)
       run: |
         # Remove the problematic init command and use sync instead
-        npx cap add android
+        # npx cap add android
         npx cap sync
         
     - name: Build APK with proper signing
