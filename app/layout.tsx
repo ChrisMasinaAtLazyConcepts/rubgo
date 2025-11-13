@@ -1,27 +1,17 @@
-import { AuthProvider } from "@/lib/auth-context"
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import './globals.css'
-
-const inter = Inter({ subsets: ['latin'] })
-
-export const metadata: Metadata = {
-  title: 'RubGo - Find Therapists',
-  description: 'Find massage therapists near you',
-}
+// app/layout.tsx
+export const metadata = {
+  title: 'RubHub - Massages on the go',
+  description: 'Massage on demand system',
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
-      </body>
+      <body>{children}</body>
     </html>
-  )
+  );
 }

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { Loader2 } from "lucide-react"
 import SplashScreen from '@/components/splash-screen'
 
 export default function Page() {
@@ -11,6 +10,11 @@ export default function Page() {
   const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(true)
 
+  const handleLoadingComplete = () => {
+    setIsLoading(false)
+  }
+
+  // Handle routing after splash screen
   useEffect(() => {
     if (!isLoading) {
       if (user) {
@@ -21,33 +25,36 @@ export default function Page() {
     }
   }, [user, isLoading, router])
 
-  const handleLoadingComplete = () => {
-    setIsLoading(false)
-    // You can also redirect to main app here if needed
-    // router.push('/dashboard')
-  }
-
-  // Simulate app initialization
+  // App initialization
   useEffect(() => {
-    // Check auth status, load data, etc.
     const initializeApp = async () => {
-      // Simulate API calls or data loading
+      // You can add actual initialization logic here:
+      // - Check authentication status
+      // - Load user preferences
+      // - Initialize analytics
+      // - Check for updates
       await new Promise(resolve => setTimeout(resolve, 1000))
-      // App is ready, splash screen will handle the transition
     }
 
     initializeApp()
   }, [])
 
   return (
-     <>
+    <>
       <SplashScreen 
         onLoadingComplete={handleLoadingComplete}
         duration={4000}
       />
       
+      {/* Optional: You can add a loading state here if needed */}
       {!isLoading && (
         <main className="min-h-screen bg-background">
+          {/* This will briefly show before redirect happens */}
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-center">
+              <p>Redirecting...</p>
+            </div>
+          </div>
         </main>
       )}
     </>
