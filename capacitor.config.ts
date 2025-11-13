@@ -1,12 +1,19 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'za.co.rubhub',
+  appId: 'com.rubgo.app',
   appName: 'RubHub',
   webDir: 'dist',
-  bundledWebRuntime: false,
+  // Remove bundledWebRuntime: false - it's no longer needed
   android: {
     allowMixedContent: true
+  },
+  ios: {
+    // Add iOS specific configuration if needed
+  },
+  server: {
+    // Add server configuration if needed
+    androidScheme: 'https'
   }
 };
 
