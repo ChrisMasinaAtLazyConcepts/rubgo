@@ -26,117 +26,33 @@ jobs:
         cache: 'npm'
         
     - name: Install dependencies
-      run: |
-        npm ci --legacy-peer-deps
-        # Install Capacitor assets CLI with force flag to resolve dependencies
-        npm install @capacitor/assets --save-dev --legacy-peer-deps --force
-        
+      run: npm ci --legacy-peer-deps
+      
     - name: Build Next.js app
       run: npm run build
       
-    - name: Create proper web assets
+    - name: Create required Android resources
       run: |
-        # Create proper web assets structure
+        # Create strings.xml if it doesn't exist
+        mkdir -p android/app/src/main/res/values
+        cat > android/app/src/main/res/values/strings.xml << 'EOL'
+        <?xml version="1.0" encoding="utf-8"?>
+        <resources>
+            <string name="app_name">RubHub</string>
+            <string name="RubHub">RubHub</string>
+            <string name="title_activity_main">RubHub</string>
+            <string name="package_name">za.co.rubhub</string>
+            <string name="custom_url_scheme">za.co.rubhub</string>
+            <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
+        </resources>
+        EOL
+        
+        # Create out directory and basic files
         mkdir -p out
         mkdir -p android/app/src/main/assets
         
-        # Create a proper PWA-ready index.html
-        cat > out/index.html << 'EOL'
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>RubHub</title>
-            <style>
-                body { 
-                    margin: 0; 
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    min-height: 100vh;
-                    color: white;
-                }
-                .loading {
-                    text-align: center;
-                    padding: 2rem;
-                }
-                .spinner {
-                    border: 4px solid rgba(255,255,255,0.3);
-                    border-radius: 50%;
-                    border-top: 4px solid white;
-                    width: 40px;
-                    height: 40px;
-                    animation: spin 1s linear infinite;
-                    margin: 0 auto 1rem;
-                }
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="loading">
-                <div class="spinner"></div>
-                <h1>RubHub</h1>
-                <p>Loading your therapy platform...</p>
-            </div>
-            <script>
-                setTimeout(() => {
-                    window.location.reload();
-                }, 3000);
-            </script>
-        </body>
-        </html>
-        EOL
-        
-    - name: Generate proper app icons and splash screens
-      run: |
-        # Create assets directory and basic icons if they don't exist
-        mkdir -p assets
-        
-        # Create a basic assets.json configuration
-        cat > assets.json << 'EOL'
-        {
-          "logo": "./assets/icon.png",
-          "logoBackgroundColor": "#667eea",
-          "ios": {
-            "logo": {
-              "source": "./assets/icon.png",
-              "backgroundColor": "#667eea"
-            },
-            "splash": {
-              "backgroundColor": "#667eea",
-              "resize": "contain"
-            }
-          },
-          "android": {
-            "logo": {
-              "source": "./assets/icon.png",
-              "backgroundColor": "#667eea"
-            },
-            "splash": {
-              "backgroundColor": "#667eea",
-              "resize": "contain"
-            }
-          }
-        }
-        EOL
-        
-        # Create placeholder icon using ImageMagick
-        sudo apt-get update && sudo apt-get install -y imagemagick
-        convert -size 1024x1024 xc:#667eea \
-          -fill white \
-          -gravity center \
-          -pointsize 100 \
-          -annotate +0+0 "RH" \
-          assets/icon.png
-          
-        # Generate Capacitor assets
-        npx capacitor-assets generate
+        # Create a basic index.html
+        echo '<!DOCTYPE html><html><head><title>RubHub</title></head><body><h1>RubHub</h1></body></html>' > out/index.html
         
     - name: Setup Java 21
       uses: actions/setup-java@v4
@@ -147,15 +63,12 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       
-    - name: Sync Capacitor and build
+    - name: Install Capacitor and sync
       run: |
-        # Create required directories
-        mkdir -p android/app/src/main/assets
-        
-        # Sync Capacitor
         npx cap sync
-        
-        # Build Android APK
+      
+    - name: Build APK with Java 21
+      run: |
         cd android
         chmod +x gradlew
         ./gradlew assembleDebug --stacktrace
