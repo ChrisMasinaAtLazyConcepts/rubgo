@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { BottomNav } from "@/components/bottom-nav"
 import { Button } from "@/components/ui/button"
-import { Search, Bell, MapPin, Navigation, Users, Plus, X, Clock, User, Users as UsersIcon, Heart, Users as Family, Briefcase, MessageCircle } from "lucide-react"
+import { Search, Bell, MapPin, Navigation, Users, Plus, X, Clock, User, Users as UsersIcon, Heart, Users as Family, Briefcase, MessageCircle, ShoppingCart } from "lucide-react"
 import { FilterOptions  } from "@/lib/types"
 import { therapists, type Therapist, type MassageService } from "@/lib/massage-data"
 import { MobileHeader } from "@/components/mobile-header"
@@ -48,6 +48,10 @@ export default function HomePage() {
   const [foundTherapists, setFoundTherapists] = useState(0)
   const [requiredTherapists, setRequiredTherapists] = useState(0)
   const [canConfirmBooking, setCanConfirmBooking] = useState(false)
+
+  // Cart state for group bookings
+  const [cartItems, setCartItems] = useState<number>(0)
+  const [showCart, setShowCart] = useState(false)
 
   const [filters, setFilters] = useState<FilterOptions>({
     type: "all",
@@ -163,6 +167,15 @@ export default function HomePage() {
       return () => clearInterval(searchInterval)
     }
   }, [isSearchingTherapists, requiredTherapists])
+
+  // Update cart items when group booking is configured
+  useEffect(() => {
+    if (selectedGroupType && participantCount >= 2) {
+      setCartItems(participantCount)
+    } else {
+      setCartItems(0)
+    }
+  }, [selectedGroupType, participantCount])
 
   const filteredTherapists = useMemo(() => {
     return therapists.filter((therapist) => {
@@ -319,22 +332,28 @@ export default function HomePage() {
   }
 
   const handleConfirmGroupBooking = () => {
-    // Navigate to group booking confirmation with all parameters
-    const bookingDetails = {
-      type: selectedGroupType,
-      participants: participantCount,
-      therapists: requiredTherapists,
-      duration: sessionDuration,
-      sharing: therapistSharing,
-      total: groupPricing.total,
-      perPerson: groupPricing.perPerson,
-      groupName: groupTypes.find(g => g.id === selectedGroupType)?.name || "Group Session"
-    }
+    // Show booking loading screen only after confirmation
+    setShowBookingLoading(true)
+    setIsSearchingTherapists(false)
     
-    // Store booking details in session storage for the confirmation page
-    sessionStorage.setItem('groupBookingDetails', JSON.stringify(bookingDetails))
-    
-    router.push('/group-booking/confirmation')
+    // Simulate booking processing
+    setTimeout(() => {
+      const bookingDetails = {
+        type: selectedGroupType,
+        participants: participantCount,
+        therapists: requiredTherapists,
+        duration: sessionDuration,
+        sharing: therapistSharing,
+        total: groupPricing.total,
+        perPerson: groupPricing.perPerson,
+        groupName: groupTypes.find(g => g.id === selectedGroupType)?.name || "Group Session"
+      }
+      
+      // Store booking details in session storage for the confirmation page
+      sessionStorage.setItem('groupBookingDetails', JSON.stringify(bookingDetails))
+      
+      router.push('/group-booking/confirmation')
+    }, 3000)
   }
 
   const handleCancelGroupBooking = () => {
@@ -347,11 +366,19 @@ export default function HomePage() {
     setRequiredTherapists(0)
     setCanConfirmBooking(false)
     setShowGroupFab(true)
+    setCartItems(0)
   }
 
   const getMaxParticipants = () => {
     const group = groupTypes.find(g => g.id === selectedGroupType)
     return group?.maxParticipants || 2
+  }
+
+  // Handle cart click
+  const handleCartClick = () => {
+    if (cartItems > 0) {
+      setShowCart(true)
+    }
   }
 
   return (
@@ -380,6 +407,21 @@ export default function HomePage() {
               className="absolute bottom-4 left-4 w-14 h-14 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 z-30 hover:scale-105 active:scale-95 border-2 border-white"
             >
               <Users className="w-6 h-6" />
+            </button>
+          )}
+
+          {/* Cart Icon FAB - Positioned in top right corner showing order count */}
+          {cartItems > 0 && (
+            <button
+              onClick={handleCartClick}
+              className="absolute top-4 right-4 w-14 h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 z-30 hover:scale-105 active:scale-95 border-2 border-white"
+            >
+              <div className="relative">
+                <ShoppingCart className="w-6 h-6" />
+                <div className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                  {cartItems}
+                </div>
+              </div>
             </button>
           )}
         </div>
@@ -431,6 +473,70 @@ export default function HomePage() {
       </div>
 
       <BottomNav />
+
+      {/* Cart Summary Modal */}
+      {showCart && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50 p-4">
+          <div className="bg-white rounded-t-2xl w-full max-w-md border border-gray-200 shadow-xl">
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 rounded-t-2xl">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-bold">Group Booking Summary</h2>
+                  <p className="text-orange-100 text-sm mt-1">{cartItems} massage orders</p>
+                </div>
+                <button
+                  onClick={() => setShowCart(false)}
+                  className="p-2 hover:bg-orange-400 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-semibold text-gray-900">Group Type:</span>
+                  <span className="text-gray-700">
+                    {groupTypes.find(g => g.id === selectedGroupType)?.name}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-semibold text-gray-900">Participants:</span>
+                  <span className="text-gray-700">{participantCount} people</span>
+                </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-semibold text-gray-900">Duration:</span>
+                  <span className="text-gray-700">{sessionDuration} hours</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-gray-900">Total Cost:</span>
+                  <span className="text-lg font-bold text-green-600">R{groupPricing.total}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCart(false)}
+                  className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  Continue Browsing
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowCart(false)
+                    setIsSearchingTherapists(true)
+                  }}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold"
+                >
+                  Proceed to Book
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Group Booking Menu Modal */}
       {showGroupMenu && (
@@ -635,7 +741,7 @@ export default function HomePage() {
                     onClick={handleStartGroupBooking}
                     className="w-full bg-green-600 hover:bg-green-700 h-12 text-lg font-semibold text-white shadow-sm transition-all duration-200"
                   >
-                    Start Group Booking
+                    Add to Cart ({participantCount})
                   </Button>
                 </>
               )}
@@ -646,7 +752,7 @@ export default function HomePage() {
 
       {/* Group Booking Search Progress */}
       {isSearchingTherapists && (
-        <div className="fixed inset-0 bg-[#0B1F3D] bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md border border-gray-200 shadow-xl">
             {/* Header with gradient */}
             <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-2xl">
