@@ -31,14 +31,12 @@ export default function HomePage() {
   const { user } = useAuth()
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedService, setSelectedService] = useState<MassageService| null>(null)
+  const [selectedService, setSelectedService] = useState<MassageService | null>(null)
   const [userLocation, setUserLocation] = useState({ lat: -26.1076, lng: 28.0567 })
   const [selectedTherapist, setSelectedTherapist] = useState<Therapist | null>(null)
   const [showBookingRequest, setShowBookingRequest] = useState(false)
-  const [showBookingLoading, setShowBookingLoading] = useState(false)
   
   // Group Booking States
-  const [showGroupFab, setShowGroupFab] = useState(true)
   const [showGroupMenu, setShowGroupMenu] = useState(false)
   const [selectedGroupType, setSelectedGroupType] = useState<string>("")
   const [participantCount, setParticipantCount] = useState(1)
@@ -49,8 +47,19 @@ export default function HomePage() {
   const [requiredTherapists, setRequiredTherapists] = useState(0)
   const [canConfirmBooking, setCanConfirmBooking] = useState(false)
 
-  // Cart state for group bookings
-  const [cartItems, setCartItems] = useState<number>(0)
+  // Cart state - unified for both individual and group bookings
+  const [cartItems, setCartItems] = useState<Array<{
+    id: string;
+    type: 'individual' | 'group';
+    therapist?: Therapist;
+    service?: MassageService;
+    groupType?: string;
+    participants?: number;
+    duration?: number;
+    total: number;
+    name: string;
+    description: string;
+  }>>([])
   const [showCart, setShowCart] = useState(false)
 
   const [filters, setFilters] = useState<FilterOptions>({
@@ -162,20 +171,11 @@ export default function HomePage() {
           }
           return newCount
         })
-      }, 1500) // Simulate finding a therapist every 1.5 seconds
+      }, 1500)
 
       return () => clearInterval(searchInterval)
     }
   }, [isSearchingTherapists, requiredTherapists])
-
-  // Update cart items when group booking is configured
-  useEffect(() => {
-    if (selectedGroupType && participantCount >= 2) {
-      setCartItems(participantCount)
-    } else {
-      setCartItems(0)
-    }
-  }, [selectedGroupType, participantCount])
 
   const filteredTherapists = useMemo(() => {
     return therapists.filter((therapist) => {
@@ -193,7 +193,7 @@ export default function HomePage() {
         service.price <= filters.maxPrice
       )
 
-      const matchesRating = therapist.rating? therapist.rating >= filters.rating : therapist.rating;
+      const matchesRating = therapist.rating ? therapist.rating >= filters.rating : true
 
       const matchesGender = filters.genderPreference === "any" || 
         therapist.gender === filters.genderPreference
@@ -207,17 +207,15 @@ export default function HomePage() {
 
   // Calculate pricing based on group booking options
   const calculateGroupPricing = () => {
-    const basePricePerPerson = 300 // Base price per person
+    const basePricePerPerson = 300
     let total = basePricePerPerson * participantCount
     
-    // Duration multiplier
     if (sessionDuration === 3) {
-      total *= 1.4 // 40% more for 3-hour session
+      total *= 1.4
     }
     
-    // Therapist sharing discount
     if (therapistSharing === "shared") {
-      total *= 0.8 // 20% discount for shared therapists
+      total *= 0.8
     }
     
     const serviceFee = total * 0.20
@@ -237,27 +235,28 @@ export default function HomePage() {
 
   const groupPricing = calculateGroupPricing()
 
-  const calculateDistance = (therapist: Therapist) => {
-    if (!userLocation) return null
-    const R = 6371
-    const dLat = (therapist.location.lat - userLocation.lat) * Math.PI / 180
-    const dLon = (therapist.location.lng - userLocation.lng) * Math.PI / 180
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(userLocation.lat * Math.PI / 180) * 
-      Math.cos(therapist.location.lat * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2)
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
-    return (R * c).toFixed(1)
+  // Calculate individual therapist pricing
+  const calculateIndividualPricing = (therapist: Therapist, service: MassageService) => {
+    const basePrice = service.price
+    const serviceFee = basePrice * 0.20
+    const bookingFee = 15
+    
+    const surgeMultiplier = Math.random() * 0.3 + 1.0
+    const surgedPrice = basePrice * surgeMultiplier
+    
+    const subtotal = surgedPrice + serviceFee + bookingFee
+    const vat = subtotal * 0.15
+    
+    return {
+      base: Math.round(basePrice),
+      surged: Math.round(surgedPrice),
+      serviceFee: Math.round(serviceFee),
+      bookingFee: Math.round(bookingFee),
+      vat: Math.round(vat),
+      total: Math.round(subtotal + vat),
+      surgeMultiplier: parseFloat(surgeMultiplier.toFixed(1))
+    }
   }
-
-  const handleBookTherapist = (therapist: Therapist, service: MassageService) => {
-    router.push(`/booking/${therapist.id}?service=${service.id}`)
-  }
-
-  const estimatedPrice = selectedService ? 
-    calculatePrice(selectedService.price, userLocation) : 
-    null
 
   // Handle therapist card click
   const handleTherapistClick = (therapist: Therapist, service: any) => {
@@ -266,77 +265,65 @@ export default function HomePage() {
     setShowBookingRequest(true)
   }
 
-  // Handle booking confirmation
-  const handleConfirmBooking = () => {
-    setShowBookingRequest(false)
-    setShowBookingLoading(true)
-    if (!selectedTherapist || !selectedService) {
-      console.error("Therapist or service not selected")
-      return
+  // Handle adding individual therapist to cart
+  const handleAddToCart = (therapist: Therapist, service: MassageService) => {
+    const pricing = calculateIndividualPricing(therapist, service)
+    
+    const cartItem = {
+      id: `individual-${therapist.id}-${service.id}-${Date.now()}`,
+      type: 'individual' as const,
+      therapist,
+      service,
+      total: pricing.total,
+      name: `${therapist.name} - ${service.name}`,
+      description: `${service.duration} min • ${therapist.specialty}`
     }
     
-    setTimeout(() => {
-      handleBookNow()
-    }, 5000)
-  }
-
-  const handleBookNow = () => {
-    if (!selectedTherapist || !selectedService) {
-      alert("Please select a therapist and service first")
-      return
-    }
-
-    const params = new URLSearchParams({
-      therapist: selectedTherapist.name,
-      service: selectedService.name,
-      price: selectedService.price.toString(),
-      duration: `${selectedService.duration} minutes`,
-    })
-
-    router.push(`/payment/processing?${params.toString()}`)
+    setCartItems(prev => [...prev, cartItem])
+    setShowBookingRequest(false)
+    setSelectedTherapist(null)
+    setSelectedService(null)
   }
 
   // Handle booking cancellation
   const handleCancelBooking = () => {
     setShowBookingRequest(false)
-    setShowBookingLoading(false)
     setSelectedTherapist(null)
     setSelectedService(null)
   }
-  
-  const handleManagePayment = () => {
-    router.push('/payment-methods')
-  }
-
-  // Handle contact therapist
-  const handleContactTherapist = () => {
-    console.log("Contacting therapist:", selectedTherapist?.name)
-  }
 
   // Group Booking Handlers
-  const handleGroupFabClick = () => {
-    setShowGroupMenu(true)
-    setShowGroupFab(false)
-  }
-
   const handleGroupTypeSelect = (groupType: any) => {
     setSelectedGroupType(groupType.id)
-    setParticipantCount(2) // Default to minimum for group
+    setParticipantCount(2)
   }
 
-  const handleStartGroupBooking = () => {
+  const handleAddGroupToCart = () => {
     if (selectedGroupType && participantCount >= 2) {
-      setIsSearchingTherapists(true)
+      const groupType = groupTypes.find(g => g.id === selectedGroupType)
+      const cartItem = {
+        id: `group-${selectedGroupType}-${Date.now()}`,
+        type: 'group' as const,
+        groupType: selectedGroupType,
+        participants: participantCount,
+        duration: sessionDuration,
+        total: groupPricing.total,
+        name: groupType?.name || "Group Session",
+        description: `${participantCount} people • ${sessionDuration} hours • ${therapistSharing === 'shared' ? 'Shared therapists' : 'Individual therapists'}`
+      }
+      
+      setCartItems(prev => [...prev, cartItem])
       setShowGroupMenu(false)
+      setSelectedGroupType("")
+      setParticipantCount(1)
+      setSessionDuration(2)
+      setTherapistSharing("shared")
     }
   }
 
   const handleConfirmGroupBooking = () => {
-    // Show booking loading screen only after confirmation
-    setShowBookingLoading(true)
     setIsSearchingTherapists(false)
     
-    // Simulate booking processing
     setTimeout(() => {
       const bookingDetails = {
         type: selectedGroupType,
@@ -349,9 +336,7 @@ export default function HomePage() {
         groupName: groupTypes.find(g => g.id === selectedGroupType)?.name || "Group Session"
       }
       
-      // Store booking details in session storage for the confirmation page
       sessionStorage.setItem('groupBookingDetails', JSON.stringify(bookingDetails))
-      
       router.push('/group-booking/confirmation')
     }, 3000)
   }
@@ -365,8 +350,6 @@ export default function HomePage() {
     setFoundTherapists(0)
     setRequiredTherapists(0)
     setCanConfirmBooking(false)
-    setShowGroupFab(true)
-    setCartItems(0)
   }
 
   const getMaxParticipants = () => {
@@ -376,10 +359,39 @@ export default function HomePage() {
 
   // Handle cart click
   const handleCartClick = () => {
-    if (cartItems > 0) {
+    if (cartItems.length > 0) {
       setShowCart(true)
+    } else {
+      setShowGroupMenu(true)
     }
   }
+
+  // Remove item from cart
+  const handleRemoveFromCart = (index: number) => {
+    setCartItems(prev => prev.filter((_, i) => i !== index))
+  }
+
+  // Clear entire cart
+  const handleClearCart = () => {
+    setCartItems([])
+    setShowCart(false)
+  }
+
+  // Proceed to checkout
+  const handleCheckout = () => {
+    if (cartItems.length === 0) return
+    
+    // Store cart items in session storage for checkout page
+    sessionStorage.setItem('cartItems', JSON.stringify(cartItems))
+    setShowCart(false)
+    router.push('/checkout')
+  }
+
+  // Calculate cart total
+  const cartTotal = cartItems.reduce((total, item) => total + item.total, 0)
+  const totalItems = cartItems.reduce((total, item) => 
+    total + (item.type === 'group' ? (item.participants || 1) : 1), 0
+  )
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -400,30 +412,20 @@ export default function HomePage() {
             <p className="text-sm font-medium text-gray-900">Your Location</p>
           </div>
 
-          {/* Group Booking FAB - Positioned in bottom left corner of map */}
-          {showGroupFab && (
-            <button
-              onClick={handleGroupFabClick}
-              className="absolute bottom-4 left-4 w-14 h-14 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 z-30 hover:scale-105 active:scale-95 border-2 border-white"
-            >
-              <Users className="w-6 h-6" />
-            </button>
-          )}
-
-          {/* Cart Icon FAB - Positioned in top right corner showing order count */}
-          {cartItems > 0 && (
-            <button
-              onClick={handleCartClick}
-              className="absolute top-4 right-4 w-14 h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 z-30 hover:scale-105 active:scale-95 border-2 border-white"
-            >
-              <div className="relative">
-                <ShoppingCart className="w-6 h-6" />
+          {/* Green Cart FAB - Positioned in top right corner */}
+          <button
+            onClick={handleCartClick}
+            className="absolute top-4 right-4 w-14 h-14 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 z-30 hover:scale-105 active:scale-95 border-2 border-white"
+          >
+            <div className="relative">
+              <ShoppingCart className="w-6 h-6" />
+              {cartItems.length > 0 && (
                 <div className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
-                  {cartItems}
+                  {cartItems.length}
                 </div>
-              </div>
-            </button>
-          )}
+              )}
+            </div>
+          </button>
         </div>
 
         {/* Therapists List */}
@@ -477,16 +479,16 @@ export default function HomePage() {
       {/* Cart Summary Modal */}
       {showCart && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50 p-4">
-          <div className="bg-white rounded-t-2xl w-full max-w-md border border-gray-200 shadow-xl">
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 rounded-t-2xl">
+          <div className="bg-white rounded-t-2xl w-full max-w-md max-h-[80vh] overflow-y-auto border border-gray-200 shadow-xl">
+            <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-2xl">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl font-bold">Group Booking Summary</h2>
-                  <p className="text-orange-100 text-sm mt-1">{cartItems} massage orders</p>
+                  <h2 className="text-xl font-bold">Your Cart</h2>
+                  <p className="text-green-100 text-sm mt-1">{totalItems} massage orders</p>
                 </div>
                 <button
                   onClick={() => setShowCart(false)}
-                  className="p-2 hover:bg-orange-400 rounded-full transition-colors"
+                  className="p-2 hover:bg-green-500 rounded-full transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -494,55 +496,98 @@ export default function HomePage() {
             </div>
 
             <div className="p-6 space-y-4">
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-semibold text-gray-900">Group Type:</span>
-                  <span className="text-gray-700">
-                    {groupTypes.find(g => g.id === selectedGroupType)?.name}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-semibold text-gray-900">Participants:</span>
-                  <span className="text-gray-700">{participantCount} people</span>
-                </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-semibold text-gray-900">Duration:</span>
-                  <span className="text-gray-700">{sessionDuration} hours</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-900">Total Cost:</span>
-                  <span className="text-lg font-bold text-green-600">R{groupPricing.total}</span>
-                </div>
+              {/* Cart Items */}
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {cartItems.map((item, index) => (
+                  <div key={item.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900">{item.name}</h4>
+                        <p className="text-sm text-gray-600">{item.description}</p>
+                        {item.type === 'group' && (
+                          <p className="text-xs text-green-600 mt-1">
+                            {item.participants} {item.participants === 1 ? 'person' : 'people'}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleRemoveFromCart(index)}
+                        className="text-red-500 hover:text-red-700 transition-colors ml-2"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Total</span>
+                      <span className="font-bold text-green-600">R{item.total}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowCart(false)}
-                  className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
-                >
-                  Continue Browsing
-                </Button>
-                <Button
-                  onClick={() => {
-                    setShowCart(false)
-                    setIsSearchingTherapists(true)
-                  }}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold"
-                >
-                  Proceed to Book
-                </Button>
-              </div>
+              {cartItems.length === 0 && (
+                <div className="text-center py-8">
+                  <ShoppingCart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">Your cart is empty</p>
+                  <Button
+                    onClick={() => {
+                      setShowCart(false)
+                      setShowGroupMenu(true)
+                    }}
+                    className="mt-3 bg-green-600 hover:bg-green-700"
+                  >
+                    Start Group Booking
+                  </Button>
+                </div>
+              )}
+
+              {/* Cart Total */}
+              {cartItems.length > 0 && (
+                <>
+                  <div className="border-t border-gray-200 pt-4">
+                    <div className="flex justify-between items-center text-lg font-semibold">
+                      <span className="text-gray-900">Total</span>
+                      <span className="text-green-600">R{cartTotal}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={handleClearCart}
+                      className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+                    >
+                      Clear Cart
+                    </Button>
+                    <Button
+                      onClick={handleCheckout}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold"
+                    >
+                      Checkout (R{cartTotal})
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
       )}
 
+      {/* Updated BookingRequest with Add to Cart */}
+      {selectedTherapist && selectedService && (
+        <BookingRequest
+          therapist={selectedTherapist}
+          service={selectedService}
+          isOpen={showBookingRequest}
+          onClose={handleCancelBooking}
+          onConfirm={() => handleAddToCart(selectedTherapist, selectedService)}
+        />
+      )}
+
       {/* Group Booking Menu Modal */}
       {showGroupMenu && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-gray-100 bg-opacity-50 flex items-end justify-center z-50 p-4">
           <div className="bg-white rounded-t-2xl w-full max-w-md max-h-[85vh] overflow-y-auto border border-gray-200 shadow-xl">
-            {/* Header with gradient matching the app theme */}
             <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-2xl">
               <div className="flex justify-between items-center">
                 <div>
@@ -550,10 +595,7 @@ export default function HomePage() {
                   <p className="text-green-100 text-sm mt-1">Book massage for multiple people</p>
                 </div>
                 <button
-                  onClick={() => {
-                    setShowGroupMenu(false)
-                    setShowGroupFab(true)
-                  }}
+                  onClick={() => setShowGroupMenu(false)}
                   className="p-2 hover:bg-green-500 rounded-full transition-colors"
                 >
                   <X className="w-5 h-5" />
@@ -738,7 +780,7 @@ export default function HomePage() {
                   </div>
 
                   <Button
-                    onClick={handleStartGroupBooking}
+                    onClick={handleAddGroupToCart}
                     className="w-full bg-green-600 hover:bg-green-700 h-12 text-lg font-semibold text-white shadow-sm transition-all duration-200"
                   >
                     Add to Cart ({participantCount})
@@ -754,14 +796,12 @@ export default function HomePage() {
       {isSearchingTherapists && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md border border-gray-200 shadow-xl">
-            {/* Header with gradient */}
             <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-2xl">
               <h2 className="text-xl font-bold text-center">Finding Therapists</h2>
               <p className="text-green-100 text-sm text-center mt-1">We're searching for available therapists in your area</p>
             </div>
 
             <div className="p-6">
-              {/* Infinity Loading Progress Bar */}
               <div className="w-full bg-gray-200 rounded-full h-2 mb-6 overflow-hidden">
                 <div 
                   className="bg-green-600 h-2 rounded-full animate-pulse"
@@ -850,50 +890,6 @@ export default function HomePage() {
           }
         }
       `}</style>
-
-      {/* Existing Booking Modals */}
-      {selectedTherapist && (
-        <>
-          <BookingRequest
-            therapist={selectedTherapist}
-            service={selectedService}
-            isOpen={showBookingRequest}
-            onClose={handleCancelBooking}
-            onConfirm={handleConfirmBooking}
-          />
-
-          <BookingLoading
-            therapist={selectedTherapist}
-            service={selectedService}
-            isOpen={showBookingLoading}
-            onCancel={handleCancelBooking}
-            onContact={handleContactTherapist}
-            onManagePayment={handleManagePayment}
-          />
-        </>
-      )}
     </div>
   )
-}
-
-// Uber-like pricing calculation
-function calculatePrice(basePrice: number, userLocation: { lat: number; lng: number } | null) {
-  const serviceFee = basePrice * 0.20
-  const bookingFee = 15
-  
-  const surgeMultiplier = Math.random() * 1.5 + 1.0
-  const surgedPrice = basePrice * surgeMultiplier
-  
-  const subtotal = surgedPrice + serviceFee + bookingFee
-  const vat = subtotal * 0.15
-  
-  return {
-    base: Math.round(basePrice),
-    surged: Math.round(surgedPrice),
-    serviceFee: Math.round(serviceFee),
-    bookingFee: Math.round(bookingFee),
-    vat: Math.round(vat),
-    total: Math.round(subtotal + vat),
-    surgeMultiplier: parseFloat(surgeMultiplier.toFixed(1))
-  }
 }

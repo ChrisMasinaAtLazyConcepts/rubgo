@@ -99,7 +99,7 @@ export default function SignInPage() {
           <div className="space-y-4">
             {/* Client Card */}
             <Card 
-              className="bg-gray-900 border-gray-700 cursor-pointer hover:border-[#71CBD1] transition-colors"
+              className="bg-gray-100 border-gray-700 cursor-pointer hover:border-[#71CBD1] transition-colors"
               onClick={() => setUserType("client")}
             >
               <CardContent className="p-6">
@@ -108,8 +108,8 @@ export default function SignInPage() {
                     <User className="w-6 h-6 text-black" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-white">Sign in as Client</h3>
-                    <p className="text-sm text-gray-400 mt-1">
+                    <h3 className="font-semibold text-green-800">Sign in as Client</h3>
+                    <p className="text-sm  mt-1">
                       Access your client dashboard and bookings
                     </p>
                   </div>
@@ -119,7 +119,7 @@ export default function SignInPage() {
 
             {/* Therapist Card */}
             <Card 
-              className="bg-gray-900 border-gray-700 cursor-pointer hover:border-[#71CBD1] transition-colors"
+              className="bg-green-800 border-gray-700 cursor-pointer hover:border-[#71CBD1] transition-colors"
               onClick={() => setUserType("therapist")}
             >
               <CardContent className="p-6">

@@ -593,7 +593,7 @@ export default function SignUpPage() {
 
           {/* Therapist Card */}
           <Card 
-            className="bg-[#71CBD1] border-2 border-gray-200 cursor-pointer hover:border-green-500 transition-all duration-200 shadow-sm hover:shadow-md"
+            className="bg-green-700 border-2 border-gray-200 cursor-pointer hover:border-green-500 transition-all duration-200 shadow-sm hover:shadow-md"
             onClick={() => setUserType("therapist")}
           >
             <CardContent className="p-6">
