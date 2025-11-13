@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
@@ -13,13 +13,30 @@ import { Loader2, ArrowLeft, Eye, EyeOff, User, Users } from "lucide-react"
 
 export default function SignInPage() {
   const router = useRouter()
-  const { signIn } = useAuth()
+  const { signIn, user, isLoading: authLoading } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [userType, setUserType] = useState<"client" | "therapist" | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [isClient, setIsClient] = useState(false)
+
+  // Ensure this only runs on client side
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  // Redirect if user is already authenticated
+  useEffect(() => {
+    if (isClient && user && !authLoading) {
+      if (userType === "therapist") {
+        router.push("/therapist/dashboard")
+      } else {
+        router.push("/home")
+      }
+    }
+  }, [user, authLoading, isClient, router, userType])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -34,17 +51,21 @@ export default function SignInPage() {
 
     try {
       await signIn(email, password)
-      // Redirect based on user type
-      if (userType === "therapist") {
-        router.push("/therapist/dashboard")
-      } else {
-        router.push("/home")
-      }
+      // The redirect will be handled by the useEffect above
     } catch (err) {
       setError("Invalid email or password")
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Show loader while checking auth state or not on client yet
+  if (!isClient || authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <Loader2 className="h-8 w-8 animate-spin text-[#71CBD1]" />
+      </div>
+    )
   }
 
   // Show user type selection if not chosen
