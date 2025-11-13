@@ -1,0 +1,148 @@
+{
+  "version": 3,
+  "pages404": true,
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "dynamicRoutes": [
+    {
+      "page": "/bookings/[id]",
+      "regex": "^/bookings/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/bookings/(?<nxtPid>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/access",
+      "regex": "^/access(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/access(?:/)?$"
+    },
+    {
+      "page": "/auth/signin",
+      "regex": "^/auth/signin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth/signin(?:/)?$"
+    },
+    {
+      "page": "/auth/signup",
+      "regex": "^/auth/signup(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth/signup(?:/)?$"
+    },
+    {
+      "page": "/bookings",
+      "regex": "^/bookings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/bookings(?:/)?$"
+    },
+    {
+      "page": "/bookings/confirmed",
+      "regex": "^/bookings/confirmed(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/bookings/confirmed(?:/)?$"
+    },
+    {
+      "page": "/browse",
+      "regex": "^/browse(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/browse(?:/)?$"
+    },
+    {
+      "page": "/cameras",
+      "regex": "^/cameras(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/cameras(?:/)?$"
+    },
+    {
+      "page": "/group-booking/confirmation",
+      "regex": "^/group\\-booking/confirmation(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/group\\-booking/confirmation(?:/)?$"
+    },
+    {
+      "page": "/home",
+      "regex": "^/home(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/home(?:/)?$"
+    },
+    {
+      "page": "/payment/processing",
+      "regex": "^/payment/processing(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/payment/processing(?:/)?$"
+    },
+    {
+      "page": "/payment-methods",
+      "regex": "^/payment\\-methods(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/payment\\-methods(?:/)?$"
+    },
+    {
+      "page": "/profile",
+      "regex": "^/profile(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/profile(?:/)?$"
+    },
+    {
+      "page": "/therapist",
+      "regex": "^/therapist(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist(?:/)?$"
+    },
+    {
+      "page": "/therapist/dashboard",
+      "regex": "^/therapist/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist/dashboard(?:/)?$"
+    },
+    {
+      "page": "/therapist/onboarding",
+      "regex": "^/therapist/onboarding(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/therapist/onboarding(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "RSC",
+    "varyHeader": "RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Router-Segment-Prefetch",
+    "prefetchHeader": "Next-Router-Prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSuffix": ".prefetch.rsc",
+    "prefetchSegmentHeader": "Next-Router-Segment-Prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments"
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  },
+  "rewrites": []
+}

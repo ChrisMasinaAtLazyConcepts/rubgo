@@ -1,0 +1,20 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/auth/signup/page": "app/auth/signup/page.js",
+  "/auth/signin/page": "app/auth/signin/page.js",
+  "/bookings/[id]/page": "app/bookings/[id]/page.js",
+  "/bookings/page": "app/bookings/page.js",
+  "/browse/page": "app/browse/page.js",
+  "/cameras/page": "app/cameras/page.js",
+  "/bookings/confirmed/page": "app/bookings/confirmed/page.js",
+  "/access/page": "app/access/page.js",
+  "/page": "app/page.js",
+  "/home/page": "app/home/page.js",
+  "/payment-methods/page": "app/payment-methods/page.js",
+  "/group-booking/confirmation/page": "app/group-booking/confirmation/page.js",
+  "/profile/page": "app/profile/page.js",
+  "/therapist/onboarding/page": "app/therapist/onboarding/page.js",
+  "/payment/processing/page": "app/payment/processing/page.js",
+  "/therapist/dashboard/page": "app/therapist/dashboard/page.js",
+  "/therapist/page": "app/therapist/page.js"
+}
