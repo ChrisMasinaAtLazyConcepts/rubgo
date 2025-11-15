@@ -27,3 +27,33 @@ allprojects {
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
+
+// Solution 1: Create debug keystore if it doesn't exist (for CI environments)
+task createDebugKeystore {
+    doLast {
+        def debugKeystore = file('app/debug.keystore')
+        if (!debugKeystore.exists()) {
+            println "Creating debug keystore for CI environment..."
+            exec {
+                commandLine 'keytool', '-genkey', '-v',
+                    '-keystore', 'app/debug.keystore',
+                    '-storepass', 'android',
+                    '-alias', 'androiddebugkey',
+                    '-keypass', 'android',
+                    '-keyalg', 'RSA',
+                    '-keysize', '2048',
+                    '-validity', '10000',
+                    '-dname', 'CN=Android Debug,O=Android,C=US'
+            }
+        } else {
+            println "Debug keystore already exists."
+        }
+    }
+}
+
+// Make assemble tasks depend on creating debug keystore in CI
+tasks.whenTaskAdded { task ->
+    if (task.name.matches('assemble.*') && System.getenv('CI') != null) {
+        task.dependsOn createDebugKeystore
+    }
+}
