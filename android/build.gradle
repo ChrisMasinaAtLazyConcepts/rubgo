@@ -28,15 +28,15 @@ task clean(type: Delete) {
     delete rootProject.buildDir
 }
 
-// Solution 1: Create debug keystore if it doesn't exist (for CI environments)
+// Solution 1: Create debug keystore in the correct location for CI environments
 task createDebugKeystore {
     doLast {
-        def debugKeystore = file('app/debug.keystore')
+        def debugKeystore = file('debug.keystore')
         if (!debugKeystore.exists()) {
-            println "Creating debug keystore for CI environment..."
+            println "Creating debug keystore for CI environment at: ${debugKeystore.absolutePath}"
             exec {
                 commandLine 'keytool', '-genkey', '-v',
-                    '-keystore', 'app/debug.keystore',
+                    '-keystore', 'debug.keystore',
                     '-storepass', 'android',
                     '-alias', 'androiddebugkey',
                     '-keypass', 'android',
@@ -45,8 +45,9 @@ task createDebugKeystore {
                     '-validity', '10000',
                     '-dname', 'CN=Android Debug,O=Android,C=US'
             }
+            println "Debug keystore created successfully."
         } else {
-            println "Debug keystore already exists."
+            println "Debug keystore already exists at: ${debugKeystore.absolutePath}"
         }
     }
 }
