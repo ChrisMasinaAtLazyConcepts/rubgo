@@ -137,18 +137,6 @@ jobs:
         cd android
         chmod +x gradlew
         
-    - name: Verify APKs
-      run: |
-        echo "=== Debug APK ==="
-        cd android/app/build/outputs/apk/debug
-        ls -la
-        echo "APK size: $(du -h app-debug.apk | cut -f1)"
-        
-        echo "=== Release APK ==="
-        cd ../release
-        ls -la
-        echo "APK size: $(du -h app-release.apk | cut -f1)"
-        
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
