@@ -28,7 +28,6 @@ task clean(type: Delete) {
     delete rootProject.buildDir
 }
 
-// Solution 1: Create debug keystore in the correct location for CI environments
 task createDebugKeystore {
     doLast {
         def debugKeystore = file('debug.keystore')
