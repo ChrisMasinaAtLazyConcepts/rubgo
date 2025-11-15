@@ -124,15 +124,6 @@ jobs:
         cd android
         chmod +x gradlew
         
-        # Create release signing config using the generated keystore
-        ./gradlew clean
-        ./gradlew assembleRelease \
-          -Pandroid.injected.signing.store.file=$(pwd)/debug.keystore \
-          -Pandroid.injected.signing.store.password=android \
-          -Pandroid.injected.signing.key.alias=androiddebugkey \
-          -Pandroid.injected.signing.key.password=android \
-          --stacktrace --no-daemon
-        
     - name: Verify APKs
       run: |
         echo "=== Debug APK ==="
