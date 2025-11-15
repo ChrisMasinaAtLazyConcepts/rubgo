@@ -119,39 +119,31 @@ jobs:
         # npx cap add android
         npx cap sync
         
-    - name: Build APK with proper signing
+    - name: Build Release APK with Signing
       run: |
         cd android
         chmod +x gradlew
         
-        # Create a debug signing config
-        mkdir -p app/debug
-        cat > app/debug/output-metadata.json << 'EOL'
-        {
-          "version": 1,
-          "applicationId": "za.co.rubhub",
-          "variantName": "debug",
-          "elements": [
-            {
-              "type": "SINGLE",
-              "filters": [],
-              "versionCode": 1,
-              "versionName": "1.0",
-              "outputFile": "app-debug.apk"
-            }
-          ]
-        }
-        EOL
-        
+        # Create release signing config using the generated keystore
         ./gradlew clean
-        ./gradlew assembleDebug --stacktrace --no-daemon
+        ./gradlew assembleRelease \
+          -Pandroid.injected.signing.store.file=$(pwd)/debug.keystore \
+          -Pandroid.injected.signing.store.password=android \
+          -Pandroid.injected.signing.key.alias=androiddebugkey \
+          -Pandroid.injected.signing.key.password=android \
+          --stacktrace --no-daemon
         
-    - name: Verify APK
+    - name: Verify APKs
       run: |
+        echo "=== Debug APK ==="
         cd android/app/build/outputs/apk/debug
         ls -la
-        file app-debug.apk
         echo "APK size: $(du -h app-debug.apk | cut -f1)"
+        
+        echo "=== Release APK ==="
+        cd ../release
+        ls -la
+        echo "APK size: $(du -h app-release.apk | cut -f1)"
         
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4

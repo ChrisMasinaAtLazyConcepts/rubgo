@@ -3,18 +3,12 @@ import withPWA from 'next-pwa';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'export', 
   reactStrictMode: true,
-  // swcMinify is now the default and no longer needed
-  // experimental.appDir is now stable and no longer needed in experimental
+  trailingSlash: true,
+  distDir: 'out',
   images: {
-    domains: ['localhost'],
-    // For newer Next.js versions, use remotePatterns instead of domains
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
-    ],
+    unoptimized: true // Required for static export
   },
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,

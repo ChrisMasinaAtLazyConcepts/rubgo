@@ -2,13 +2,12 @@
   "name": "rubhub",
   "version": "1.0.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "cap:sync": "npm run build && npx cap sync",
-    "cap:android": "npm run build && npx cap sync && npx cap open android"
+    "scripts": {
+      "build": "next build",
+      "export": "next build && next export",
+      "cap:init": "npx cap init",
+      "cap:add": "npx cap add android",
+      "cap:sync": "next build && next export && npx cap sync"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.4",

@@ -9,6 +9,7 @@ interface BookingRequestProps {
   therapist: Therapist
   service: any
   isOpen: boolean
+  confirmText: string
   onClose: () => void
   onConfirm: () => void
 }
