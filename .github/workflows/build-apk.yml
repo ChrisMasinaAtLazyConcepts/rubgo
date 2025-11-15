@@ -117,14 +117,14 @@ jobs:
       run: |
         npx cap sync android
         
-    - name: Create debug keystore
+    - name: Create debug keystore in correct location
       run: |
-        cd android
+        cd android/app
         keytool -genkey -v \
           -keystore debug.keystore \
           -storepass android \
-          -alias rubhubdebugkey \
-          -keypass rubhub \
+          -alias androiddebugkey \
+          -keypass android \
           -keyalg RSA \
           -keysize 2048 \
           -validity 10000 \
@@ -138,8 +138,9 @@ jobs:
         
     - name: List build outputs
       run: |
-        cd android
+        cd android/app/build/outputs/apk
         find . -name "*.apk" -type f
+        ls -la debug/
         
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
