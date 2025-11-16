@@ -31,13 +31,14 @@ jobs:
         npm install @capacitor/core @capacitor/cli @capacitor/android --legacy-peer-deps
         
     - name: Build Next.js app
-      run: npm run build
+      run: |
+        npm run build
         
-    - name: Setup Java 21
+    - name: Setup Java
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
-        java-version: '21'
+        java-version: '17'
         
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
@@ -46,9 +47,17 @@ jobs:
       run: |
         yes | sdkmanager "platforms;android-35" "build-tools;35.0.0"
       
-    - name: Sync Capacitor
+    - name: Sync Capacitor properly
       run: |
         npx cap sync android
+        npx cap add android
+        
+    - name: Verify Android project
+      run: |
+        echo "Android project structure:"
+        ls -la android/app/src/main/
+        echo "AndroidManifest exists:"
+        test -f android/app/src/main/AndroidManifest.xml && echo "YES" || echo "NO"
         
     - name: Create debug keystore
       run: |
@@ -61,18 +70,24 @@ jobs:
           -keyalg RSA \
           -keysize 2048 \
           -validity 10000 \
-          -dname "CN=Android Debug,O=Android,C=US"
+          -dname "CN=Android Debug,O=Android,C=ZA"
         
-    - name: Build Debug APK
+    - name: Build APK
       run: |
         cd android
         chmod +x gradlew
         ./gradlew clean
         ./gradlew assembleDebug --stacktrace
         
+    - name: Verify APK
+      run: |
+        cd android/app/build/outputs/apk/debug
+        apk_file=$(ls *.apk | head -1)
+        echo "APK: $apk_file"
+        unzip -l "$apk_file" | grep -E "(AndroidManifest|classes.dex|resources.arsc)"
+        
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
-        name: rubhub-app-debug
+        name: rubhub-app
         path: android/app/build/outputs/apk/debug/*.apk
-        retention-days: 30
