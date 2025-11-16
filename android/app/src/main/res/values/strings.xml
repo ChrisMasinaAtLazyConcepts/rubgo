@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">RubHub</string>
     <string name="title_activity_main">RubHub</string>
-    <string name="package_name">za.co.rubhub</string>
-    <string name="custom_url_scheme">za.co.rubhub</string>
+    <string name="package_name">com.rubhub.app</string>
+    <string name="custom_url_scheme">com.rubhub.app</string>
     <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
     <!-- Add this missing string -->
     <string name="RubHub">RubHub</string>
