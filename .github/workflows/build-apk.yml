@@ -116,7 +116,7 @@ jobs:
         cd android
         chmod +x gradlew
         ./gradlew clean
-        ./gradlew assembleDebug --stacktrace
+        ./gradlew assembleDebug --scan
         
     - name: Verify APK contents
       run: |
