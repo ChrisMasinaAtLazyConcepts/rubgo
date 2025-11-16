@@ -9,7 +9,7 @@ on:
 
 env:
   NODE_VERSION: '20'
-  NPM_LEGACY_PEER_DEPS: 'true'
+  NPM_LEGACY_PEER_DEPSS: 'true'
 
 jobs:
   build:
@@ -30,17 +30,22 @@ jobs:
         npm ci --legacy-peer-deps
         npm install @capacitor/core @capacitor/cli @capacitor/android --legacy-peer-deps
         
-    - name: Build Next.js app with static export
-      run: |
-        npm run build
+    - name: Build Next.js app
+      run: npm run build
         
-    - name: Verify build output
-      run: |
-        echo "Checking dist directory:"
-        ls -la dist/ || echo "No dist directory"
-        echo "Checking .next directory:"
-        ls -la .next/ || echo "No .next directory"
+    - name: Setup Java 21
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21'
         
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      
+    - name: Install Android SDK 35
+      run: |
+        yes | sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      
     - name: Sync Capacitor
       run: |
         npx cap sync android
@@ -64,16 +69,6 @@ jobs:
         chmod +x gradlew
         ./gradlew clean
         ./gradlew assembleDebug --stacktrace
-        
-    - name: Verify APK contents
-      run: |
-        cd android/app/build/outputs/apk/debug
-        apk_file=$(ls *.apk | head -1)
-        echo "APK File: $apk_file"
-        echo "APK Size:"
-        ls -lh "$apk_file"
-        echo "APK Contents:"
-        unzip -l "$apk_file" | head -30
         
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
