@@ -3,7 +3,13 @@ name: Build Android APK
 on:
   push:
     branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
   workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  NPM_LEGACY_PEER_DEPS: 'true'
 
 jobs:
   build:
@@ -13,10 +19,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Setup Node.js
+    - name: Setup Node.js 20
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
         
     - name: Install dependencies
@@ -26,9 +32,9 @@ jobs:
         
     - name: Fix capacitor config
       run: |
-        # Remove the problematic line from capacitor.config.ts
+        # Remove deprecated bundledWebRuntime from capacitor.config.ts
         sed -i '/bundledWebRuntime/d' capacitor.config.ts
-        echo "Updated capacitor.config.ts:"
+        echo "✅ Fixed capacitor.config.ts"
         cat capacitor.config.ts
         
     - name: Build Next.js app
@@ -41,13 +47,7 @@ jobs:
         ls -la dist/ || echo "No dist directory found"
         test -f dist/index.html && echo "✅ index.html exists" || echo "❌ index.html missing"
         
-    - name: Clean and setup Android
-      run: |
-        rm -rf android
-        npx cap add android
-        npx cap sync android
-        
-    - name: Setup Java
+    - name: Setup Java 17
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
@@ -56,6 +56,37 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       
+    - name: Install Android SDK 35
+      run: |
+        yes | sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      
+    - name: Clean and setup Android project
+      run: |
+        # Remove existing android folder for clean setup
+        rm -rf android
+        npx cap add android
+        npx cap sync android
+        
+    - name: Verify Android project structure
+      run: |
+        echo "📱 Android project structure:"
+        ls -la android/app/src/main/
+        echo ""
+        echo "🔍 Checking critical files:"
+        test -f android/app/src/main/AndroidManifest.xml && echo "✅ AndroidManifest.xml exists" || echo "❌ AndroidManifest.xml missing"
+        test -f android/app/src/main/res/values/strings.xml && echo "✅ strings.xml exists" || echo "❌ strings.xml missing"
+        test -d android/app/src/main/assets && echo "✅ assets directory exists" || echo "❌ assets directory missing"
+        
+    - name: Verify package name consistency
+      run: |
+        echo "🔧 Checking package name consistency:"
+        echo "Capacitor config:"
+        grep "appId" capacitor.config.ts
+        echo "build.gradle:"
+        grep "applicationId" android/app/build.gradle
+        echo "strings.xml:"
+        grep "package_name" android/app/src/main/res/values/strings.xml
+        
     - name: Create debug keystore
       run: |
         cd android/app
@@ -67,16 +98,57 @@ jobs:
           -keyalg RSA \
           -keysize 2048 \
           -validity 10000 \
-          -dname "CN=Android Debug,O=Android,C=US"
+          -dname "CN=Android Debug,O=Android,C=ZA"
+        echo "✅ Debug keystore created"
+        ls -la debug.keystore
+        
+    - name: Update app/build.gradle for Android 35
+      run: |
+        cd android/app
+        # Update compileSdk and targetSdk to 35
+        sed -i 's/compileSdk 33/compileSdk 35/g' build.gradle
+        sed -i 's/targetSdk 33/targetSdk 35/g' build.gradle
+        echo "✅ Updated build.gradle for Android 35"
+        grep -E "compileSdk|targetSdk" build.gradle
         
     - name: Build APK
       run: |
         cd android
         chmod +x gradlew
-        ./gradlew clean assembleDebug --stacktrace
+        ./gradlew clean
+        ./gradlew assembleDebug --stacktrace
         
-    - name: Upload APK
+    - name: Verify APK contents
+      run: |
+        cd android/app/build/outputs/apk/debug
+        apk_file=$(ls *.apk | head -1)
+        echo "📦 APK File: $apk_file"
+        echo "📊 APK Size:"
+        ls -lh "$apk_file"
+        echo ""
+        echo "🔍 APK Structure:"
+        unzip -l "$apk_file" | grep -E "(AndroidManifest.xml|classes.dex|resources.arsc)" || echo "❌ Critical files missing!"
+        echo ""
+        echo "🏷️ APK Badging Info:"
+        aapt dump badging "$apk_file" | head -10 || echo "❌ Could not read APK badging"
+        
+    - name: List all build outputs
+      run: |
+        cd android/app/build/outputs
+        find . -name "*.apk" -type f -exec echo "📱 Found: {}" \;
+        find . -name "*.aab" -type f -exec echo "📦 Found: {}" \;
+        
+    - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:
-        name: rubhub-app
+        name: rubhub-app-debug
         path: android/app/build/outputs/apk/debug/*.apk
+        retention-days: 30
+        
+    - name: Upload Release APK (if exists)
+      uses: actions/upload-artifact@v4
+      with:
+        name: rubhub-app-release
+        path: android/app/build/outputs/apk/release/*.apk
+        retention-days: 30
+        if-no-files-found: ignore
