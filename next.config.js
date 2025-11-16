@@ -3,16 +3,10 @@
 const nextConfig = {
   output: 'export',
   trailingSlash: true,
-  distDir: 'out',
+  distDir: 'dist',
   images: {
     unoptimized: true
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  }
 }
 
 module.exports = nextConfig

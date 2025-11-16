@@ -1,12 +1,12 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "za.co.rubhub"
-    compileSdk 35
+    namespace "za.co.rubhub.app"
+    compileSdk 33
     defaultConfig {
-        applicationId "za.co.rubhub"
-        minSdkVersion 23
-        targetSdkVersion 35
+        applicationId "za.co.rubhub.app"
+        minSdkVersion 22
+        targetSdkVersion 33
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -17,9 +17,9 @@ android {
         }
     }
     buildTypes {
-        release {
+        debug {
+            debuggable true
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 }

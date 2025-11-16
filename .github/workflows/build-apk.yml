@@ -30,94 +30,22 @@ jobs:
         npm ci --legacy-peer-deps
         npm install @capacitor/core @capacitor/cli @capacitor/android --legacy-peer-deps
         
-    - name: Build Next.js app
-      run: npm run build
-      
-    - name: Create proper Android structure
+    - name: Build Next.js app with static export
       run: |
-        # Create proper web assets directory
-        mkdir -p dist
-        mkdir -p android/app/src/main/res/values
-        mkdir -p android/app/src/main/assets
+        npm run build
         
-        # Copy Next.js build output to dist folder
-        cp -r .next/static dist/ || echo "No static files to copy"
-        cp -r public/* dist/ 2>/dev/null || echo "No public files to copy"
+    - name: Verify build output
+      run: |
+        echo "Checking dist directory:"
+        ls -la dist/ || echo "No dist directory"
+        echo "Checking .next directory:"
+        ls -la .next/ || echo "No .next directory"
         
-        # Create proper strings.xml
-        cat > android/app/src/main/res/values/strings.xml << 'EOL'
-        <?xml version="1.0" encoding="utf-8"?>
-        <resources>
-            <string name="app_name">RubHub</string>
-            <string name="title_activity_main">RubHub</string>
-            <string name="package_name">za.co.rubhub</string>
-            <string name="custom_url_scheme">za.co.rubhub</string>
-            <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
-        </resources>
-        EOL
-
-        # Create proper index.html
-        cat > dist/index.html << 'EOL'
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>RubHub</title>
-            <style>
-                body { 
-                    margin: 0; 
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    min-height: 100vh;
-                    color: white;
-                }
-                .loading {
-                    text-align: center;
-                    padding: 2rem;
-                }
-                .spinner {
-                    border: 4px solid rgba(255,255,255,0.3);
-                    border-radius: 50%;
-                    border-top: 4px solid white;
-                    width: 40px;
-                    height: 40px;
-                    animation: spin 1s linear infinite;
-                    margin: 0 auto 1rem;
-                }
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="loading">
-                <div class="spinner"></div>
-                <h1>RubHub</h1>
-                <p>Loading your therapy platform...</p>
-            </div>
-        </body>
-        </html>
-        EOL
-        
-    - name: Setup Java 21
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '21'
-        
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-      
     - name: Sync Capacitor
       run: |
         npx cap sync android
         
-    - name: Create debug keystore in correct location
+    - name: Create debug keystore
       run: |
         cd android/app
         keytool -genkey -v \
@@ -134,13 +62,18 @@ jobs:
       run: |
         cd android
         chmod +x gradlew
+        ./gradlew clean
         ./gradlew assembleDebug --stacktrace
         
-    - name: List build outputs
+    - name: Verify APK contents
       run: |
-        cd android/app/build/outputs/apk
-        find . -name "*.apk" -type f
-        ls -la debug/
+        cd android/app/build/outputs/apk/debug
+        apk_file=$(ls *.apk | head -1)
+        echo "APK File: $apk_file"
+        echo "APK Size:"
+        ls -lh "$apk_file"
+        echo "APK Contents:"
+        unzip -l "$apk_file" | head -30
         
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4

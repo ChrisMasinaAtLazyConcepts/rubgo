@@ -1,9 +1,9 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.rubgo.app',
+  appId: 'za.co.rubhub.app',
   appName: 'RubHub',
-  webDir: 'dist', // Changed from 'out' to 'dist' to match your workflow
+  webDir: 'dist',
   server: {
     androidScheme: 'https'
   }
