@@ -1,0 +1,639 @@
+/*
+Theme Name: Netcash
+Theme URI: https://themes.muffingroup.com/betheme
+Author: Muffin group
+Author URI: https://muffingroup.com
+Description: Child Theme for Betheme
+Template:	betheme
+Version: 1.6.1.2
+*/
+
+/* Global */
+.ncb
+{
+	color: #0030b7;
+}
+
+.boxspacing15tb
+{
+	padding:15px 0px;
+}
+
+.boxspacing-20tb
+{
+	padding:-20px -20px;
+}
+
+.alignright
+{
+	text-align:right;
+}
+
+.boxspacing30tb
+{
+	padding:30px 0px;
+}
+
+/* top bar swoosh*/
+.footer-divider
+{
+	height:80px;
+	background-image:url("https://netcash.co.za/wp-content/uploads/2019/10/10-reasons-devider.png");
+	background-repeat:repeat-x;
+	background-size: auto;
+	background-position:left bottom;
+}
+
+/* hamburger menu color */
+#Top_bar a.responsive-menu-toggle i
+{
+	color:#5c5de7;
+}
+
+/* padding below slider */
+
+.template-slider #Content
+{
+    padding-top: 70px;
+}
+
+.boxspacing35tb
+{
+	padding:35px 0px;
+}
+
+.mt15
+{
+	margin-top:15px !important;
+}
+
+.mt20
+{
+	margin-top:20px !important;
+}
+
+.has_content .the_content_wrapper {
+    margin-bottom: 0px;
+}
+
+.bggrey{
+background-color:rgb(250, 250, 253);
+}
+
+.youtube-video .wpb_raw_code
+{
+	margin-bottom:0px !important;
+}
+
+.smi 
+{
+	display:flex;
+	color:#fff;
+	font-size:30px;
+	margin-bottom:10px;
+}
+
+.smi i:hover
+{
+	color: rgb(238, 71, 153)
+}
+
+#Top_bar .responsive-menu-toggle
+{
+	color:#fff;
+}
+
+#Top_bar .top_bar_right { display:block;}
+
+.box450
+{
+	max-width:450px;
+	margin:0 auto;
+}
+/* Shopping cart pages */
+.cartdb
+{
+	margin-bottom:10px !important;
+}
+
+/* text center */
+.tc
+{
+	text-align:center;
+}
+
+
+/*campaign form section*/
+#contact-campaign .gfield, #contact-us-page .gfield
+{
+	margin:0px;
+}
+
+#contact-campaign li div input, #becomeapartner li div input, #contact-us-page li div input
+{
+	border: none;
+    border-bottom: 1px solid #626262;
+    background: transparent;
+    box-shadow: none;
+}
+
+
+/*contact us section*/
+#contact-us
+{
+	background-color:rgb(250, 250, 253);
+}
+
+#contact-us .gfield, #contact-us-page .gfield
+{
+	margin:0px;
+}
+
+/*#contact-us li div input, #becomeapartner li div input, #contact-us-page li div input
+{
+	border: none;
+    border-bottom: 1px solid #626262;
+    background: transparent;
+    box-shadow: none;
+}
+
+#becomeapartner .gform_wrapper .gfield_required, #contact-us-page .gform_wrapper .gfield_required
+{
+	display:none !important;
+}
+
+#becomeapartner .gfield_label, #contact-us-page .gfield_label
+{
+	font-size:16px;
+	font-family: "Roboto", Arial, Tahoma, sans-serif;
+	font-weight:700;
+}
+
+*/
+
+.faqbox
+{
+	padding-top: 35px;
+	padding-bottom: 70px;
+}
+
+.faqbox p
+{
+	line-height:20px
+}
+
+.faqbox i
+{
+	    color: #0031d3 !important;
+}
+
+/*text white */
+.tw
+{
+	color:#fff !important;
+}
+.partnersimages
+{
+	margin-bottom:0px !important;
+}
+.partnersimages .vc_single_image-wrapper
+{
+	margin-bottom:0px !important;
+}
+.nmb
+{
+	margin-bottom:0px !important;
+}
+
+.npd
+{
+	padding:0 !important;
+}
+
+.nmb .wpb_map_wraper
+{
+	margin-bottom:0px;
+}
+
+.nmb .wpb_wrapper
+{
+	padding:0px !important;
+}
+
+.ncvideoblock .wp-video
+{
+	margin: 0 auto;
+}
+.ncvideoblock .mejs-controls
+{
+	display:none;
+}
+
+/* HR settings */
+.hr100
+{
+	width:100%;
+	height:0;
+	border:1px solid rgb(238, 71, 153);
+}
+
+.hr50
+{
+	width:50%;
+	height:0;
+	border:1px solid rgb(238, 71, 153);
+	margin:0;
+}
+
+.hr100white
+{
+	width:100%;
+	height:0;
+	border:1px solid rgb(255, 255, 255);
+}
+
+.hrcenter
+{
+	height:0;
+	border:1px solid rgb(238, 71, 153);
+	width: 50%; 
+	margin-left:25%;
+	margin-right:25%;
+}
+
+/* last row no margin bottom */
+.lastrow
+{
+	margin-bottom:0 !important;
+}
+
+/*nav bar */
+#Top_bar .menu > li a:after
+{
+	background: rgb(238, 71, 153);
+}
+
+/* Wave rows*/
+
+.bgwave1
+{
+ 	position: relative;
+	margin-bottom:-80px;
+	z-index:99;
+	height:80px;
+}
+
+.bgwave2
+{
+ 	position: relative;
+	margin-top:-80px;
+	z-index:99;
+	height:80px;
+}
+
+/* ecommerce gateway page */
+
+#gatewayservices h4
+{
+	font-weight:900;
+	font-family:"Roboto", Arial, Tahoma, sans-serif;
+	font-size:20px
+}
+
+/* debit order collections page */
+#debitorderservices
+{
+	padding-top:80px;
+	background-color:rgb(250, 250, 253);
+}
+
+#debitorderservices h4
+{
+	font-weight:900;
+	font-family:"Roboto", Arial, Tahoma, sans-serif;
+	font-size:20px
+}
+
+#recoverunpaids
+{
+	padding-top:90px;
+}
+
+
+.qoutetop 
+{
+	margin:0 !important;
+}
+
+.qoutebottom {
+	margin:0px !important;
+	background-repeat:no-repeat;
+	background-position:right;
+}
+
+/* Salary payments page */
+
+
+
+.salary-payments-icon-box .icon_box
+{
+	margin-bottom:20px !important;
+}
+
+/* partners group page */
+#becomeapartner
+{
+ padding:60px 0px;
+}
+
+#partnergroupmenu .vc_tta-tab
+{
+	width:16%;
+}
+
+#partnergroupmenu .vc_tta-tab>a:hover
+{
+	background-color:#dedff9;
+	color:#3d3d59;
+}
+
+#partnergroupmenu ul li.vc_active a
+{
+	background-color:#5c5de6;
+	color:#fff;
+}
+
+/* partner individual pages */
+#partnertabs h4
+{
+	margin-top:20px !important;
+}
+.keyfeaturesinfo
+{
+	text-align: left; 
+	font-size: 14px; 
+	line-height: 22px;
+}
+
+/* Pay now Gateway Page */
+#paymentmethods .vc_single_image-wrapper
+{
+	margin-bottom:0px;
+}
+
+#paymentmethods .wpb_single_image
+{
+	margin-bottom:0px;
+}
+
+#shoppingcartplugins
+{
+	background-color: #006dc2;
+	background-position: center;
+	background-size: cover;
+	background-repeat: no-repeat repeat;
+	color:#fff !important;
+	padding:120px 0;
+}
+
+#shoppingcartplugins h2
+{
+	color:#fff;
+}
+
+#getpaidonlineicons .vc_single_image-wrapper
+{
+	margin-bottom:15px;
+}
+
+
+/* About Netcash Page */
+#openaaccount
+{
+	background-color: #006dc2;
+	background-position: center;
+	background-size: cover;
+	background-repeat: no-repeat repeat;
+	color:#fff !important;
+	padding:80px 0;
+}
+
+#openaaccount h2, #openaaccount h5
+{
+	color:#fff;
+}
+
+/*testimonial box*/
+#testimonial
+{
+padding: 0;	
+background-size: 100%;
+}
+
+
+#testlogo .wpb_single_image
+{
+margin-bottom:0px;
+}
+
+#testlogo .vc_single_image-wrapper
+{
+margin-bottom:0px;
+}
+
+#testimonial .testimonialbox .vc_column-inner
+{
+	padding-top:0px;
+	margin:20px 0;
+}
+
+#testimonial .testimonialbox .vc_column-inner
+{
+	border-left:solid 1px #333333;
+}
+#testimonialtop
+{
+	background-image: url("https://netcash.co.za/wp-content/uploads/2019/10/test-top-shaddow.png");
+	background-position: center;
+	background-size: 100%;
+	background-repeat: no-repeat;
+}
+#testimonialbot
+{
+	background-image: url("https://netcash.co.za/wp-content/uploads/2019/10/test-bottom-shaddow.png");
+	background-position: center;
+	background-size: 100%;
+	background-repeat: no-repeat;
+	margin-bottom:0px;
+}
+
+/*risk report page */
+#riskreportsmalllogos .vc_single_image-wrapper
+{
+	margin-bottom:0;
+}
+
+/*privay policy page styling */
+
+#privacypolicy h3
+{
+	margin-top:60px;
+}
+
+#privacypolicy h5
+{
+	margin-bottom:0px;
+	font-weight:800;
+	border-bottom:1px solid #e6e6e6;
+}
+
+/* footer settings */
+.footer_copy
+{
+	display:none;
+}
+/*
+#Footer
+{
+background-image: linear-gradient(to right, rgba(0,49,211) , rgba(0,180,175));
+}
+*/
+
+#Footer .footer-links ul li
+{
+	line-height:23px;
+}
+
+#Footer .footer-links ul li a
+{
+	line-height:14px;
+	font-size:14px;
+}
+
+#Footer .footer-links ul li a:hover
+{
+	color:rgb(238, 71, 153);
+	text-decoration: none;
+}
+
+@media only screen and (max-width: 767px)
+{
+#Footer .footer-links ul li
+{
+	line-height:30px;
+}
+}
+
+/* landing pages */
+
+#landingpagefooter
+{
+	position: fixed;
+	bottom:0;
+	font-size:13px;
+	line-height:18px;
+	text-align:center;
+	background-color:#3d3d59;
+}
+
+#landingpagefooter p
+{
+	color:#fff;
+	margin-bottom:0px;
+}
+
+#landingpagefooter a
+{
+	color:#fff;
+}
+
+.shaddowtop
+{
+	padding-top:60px;
+	background:url("https://netcash.co.za/wp-content/uploads/2019/11/netcash-gradient-top.png");
+}
+.shaddowbottom{
+	padding-bottom:60px;
+	background:url("https://netcash.co.za/wp-content/uploads/2019/11/netcash-gradient-bottom.png");
+}
+
+/* netcash shop service page */
+#netcashshopservice h4
+{
+	font-weight:900;
+	font-family:"Roboto", Arial, Tahoma, sans-serif;
+	font-size:20px
+}
+
+/* mobile menu background */
+@media only screen and (max-width: 767px)
+{
+	.icon-menu-fine {color:#fff;}
+	
+	#search_button { color:#fff !important;	}
+	#testlogo
+	{
+		margin-bottom:35px;
+	}
+	#testyoutubevideo
+	{
+		margin-bottom:35px;
+	}
+	#cellphonedemo
+	{
+		display:none;
+	}
+	#Top_bar .top_bar_right { display:none;}
+	.logo-mobile
+	{
+		max-height: 35px !important;
+	}
+}
+
+@media only screen and (min-width: 1240px)
+{
+	#Top_bar.is-sticky { background:rgba(255,255,255,1.0) !important;}
+}
+@media only screen and (max-width: 425px)
+{
+	#Top_bar .top_bar_right { display:none;}
+}
+
+/* Quicksand buttons */
+
+.vc_btn3.vc_btn3-size-md
+{
+    font-family: Quicksand;
+    font-weight: 500;
+}
+
+.vc_general.vc_btn3.vc_btn3-style-outline-custom
+{
+    font-family: Quicksand;
+    font-weight: 500;
+	font-size: 14px;
+}
+
+/* Custom separator */
+.vc_separator h3
+{
+    margin-bottom:0;
+    padding: 0 10px;
+    font-size:19px;
+    line-height: 32px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+}
+/*Partner page styling*/
+
+.partners-features
+{
+	background-color: #FAFAFD;
+	padding:25px;
+	border-radius: 15px
+}
+
+.partners-screenshots
+{
+	padding:25px;
+}

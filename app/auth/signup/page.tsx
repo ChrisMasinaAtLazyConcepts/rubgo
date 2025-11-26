@@ -331,21 +331,7 @@ export default function SignUpPage() {
                     </CardContent>
                   </Card>
 
-                  {hasFingerprintSupport && (
-                    <Card className="border-2 border-dashed border-green-200 hover:border-green-300 transition-colors cursor-pointer bg-white/80 backdrop-blur-sm">
-                      <CardContent className="p-6" onClick={handleFingerprintVerification}>
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                            <Fingerprint className="w-6 h-6 text-green-600" />
-                          </div>
-                          <div className="text-left">
-                            <h3 className="font-semibold text-gray-800">Fingerprint Scan</h3>
-                            <p className="text-sm text-gray-600">Use your device's fingerprint sensor</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
+                  
                 </motion.div>
               )}
 
@@ -545,21 +531,22 @@ export default function SignUpPage() {
         <div className="text-center p-6 max-w-md mx-auto">
           <span>Join RubHub</span>
           {/* Logo and Title - Centered */}
-          <div className="text-center mb-8">
-            <div className="flex justify-center mb-4">
-              <img 
-                className="w-48 h-48 object-contain"
-                src="/rubbgo2.png"
-                alt="RubHub Logo" 
-              />
-            </div>
-            
-            <div className="space-y-2">
+          <div className="text-center mb-5">
+		     <div className="space-y-2">
               <h1 className="text-4xl font-bold text-green-700">
                 RubHub<sup className="text-sm font-normal ml-0.5">™</sup>
               </h1>
               <p className="text-gray-600">version 1.0.0 BETA</p>
             </div>
+            <div className="flex justify-center mb-4 pt-5">
+              <img 
+                className="w-48 h-48 object-contain"
+                src="/rubgo-login.png"
+                alt="RubHub Logo" 
+              />
+            </div>
+            
+         
             <p className="text-gray-500 mt-4">Choose your account type to get started</p>
           </div>
 
@@ -567,23 +554,23 @@ export default function SignUpPage() {
           <div className="space-y-4 mb-8">
           {/* Client Card */}
         <Card 
-          className="bg-[#059669] text-white border-2 border-gray-200 cursor-pointer hover:border-[#71CBD1] transition-all duration-200 shadow-sm hover:shadow-md"
-          onClick={() => setUserType("client")}
-        >
+              className="bg-gray-100 border-gray-700 cursor-pointer hover:border-[#71CBD1] transition-colors"
+              onClick={() => setUserType("client")}
+            >
           <CardContent className="p-6">
-            <div className="flex gap-4 items-start">
-              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
-                <User className="w-6 h-6 text-white" />
-              </div>
+            <div className="flex gap-2 items-start">
+               <div className="w-12 h-12 bg-[#71CBD1] rounded-full flex items-center justify-center">
+                    <User className="w-6 h-6 text-black" />
+                  </div>
               <div className="flex-1 min-w-0 space-y-2">
                 <div className="space-y-1">
-                  <h3 className="font-semibold text-lg tracking-tight text-white">Register as Client</h3>
-                  <p className="text-white/90 text-sm leading-relaxed font-normal">
+                  <h3 className="font-semibold text-lg tracking-tight ">Register as Client</h3>
+                  <p className="text-gray/90 text-sm leading-relaxed font-normal">
                     Find and book licensed massage therapists near you
                   </p>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-white/80">
-                  <div className="w-1.5 h-1.5 bg-white/60 rounded-full"></div>
+                <div className="flex items-start text-xs">
+                  <div className="w-1.5 h-1.5 rounded-full"></div>
                   Instant access to certified professionals
                 </div>
               </div>
@@ -603,12 +590,12 @@ export default function SignUpPage() {
                 </div>
                 <div className="flex-1 min-w-0 space-y-2">
                   <div className="space-y-1">
-                    <h3 className="font-semibold text-lg tracking-tight text-white">Apply as Therapist</h3>
+                    <h3 className="font-semibold text-lg tracking-tight text-white">Register as Therapist</h3>
                     <p className="text-white/90 text-sm leading-relaxed font-normal">
                       Join our network and start accepting clients
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-white/80">
+                  <div className="flex items-center text-xs text-white/80">
                     <div className="w-1.5 h-1.5 bg-white/60 rounded-full"></div>
                     Additional verification required
                   </div>
@@ -616,36 +603,19 @@ export default function SignUpPage() {
               </div>
             </CardContent>
           </Card>
+         { /* Sign Up Link */}
+          <div className="text-center text-sm pt-4">
+            <span className="text-gray-400">Already have an account? </span>
+            <Link 
+              href="/auth/signin" 
+              className="text-[#71CBD1] hover:text-[#5bb5c1] font-semibold transition-colors"
+            >
+              Sign in
+            </Link>
+          </div> 
           </div>
 
-          {/* Terms and Conditions */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                id="pre-selection-terms"
-                checked={acceptedTerms}
-                onChange={(e) => setAcceptedTerms(e.target.checked)}
-                className="mt-1 rounded border-gray-300 text-[#71CBD1] focus:ring-[#71CBD1] focus:ring-2"
-              />
-              <label htmlFor="pre-selection-terms" className="text-sm text-gray-700 leading-relaxed">
-                I agree to the{" "}
-                <button
-                  type="button"
-                  onClick={() => setShowTermsPopup(true)}
-                  className="text-[#71CBD1] hover:underline font-medium"
-                >
-                  Terms of Service
-                </button>{" "}
-                and{" "}
-                <Link href="/privacy" className="text-[#71CBD1] hover:underline font-medium">
-                  Privacy Policy
-                </Link>
-                . I understand that my personal data will be processed in accordance with 
-                applicable data protection laws.
-              </label>
-            </div>
-          </div>
+         
 
           {/* Therapist Onboarding Preview */}
           <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -873,16 +843,11 @@ export default function SignUpPage() {
               userType === "therapist" ? "Start Application" : "Create Account"
             )}
           </Button>
-
-          {/* Sign In Link */}
-          <div className="text-center text-sm pt-4">
-            <span className="text-gray-600">Already have an account? </span>
-            <Link href="/signin" className="text-[#71CBD1] hover:underline font-medium">
-              Sign in
-            </Link>
-          </div>
+			  
+		  
         </form>
 
+          
         {/* Additional Information for Therapists */}
         {userType === "therapist" && (
           <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">

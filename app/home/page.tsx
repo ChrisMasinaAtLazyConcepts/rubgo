@@ -357,13 +357,14 @@ export default function HomePage() {
     return group?.maxParticipants || 2
   }
 
-  // Handle cart click
+  // Handle cart click - now only opens/closes cart menu
   const handleCartClick = () => {
-    if (cartItems.length > 0) {
-      setShowCart(true)
-    } else {
-      setShowGroupMenu(true)
-    }
+    setShowCart(!showCart)
+  }
+
+  // Handle group booking FAB click
+  const handleGroupBookingClick = () => {
+    setShowGroupMenu(true)
   }
 
   // Remove item from cart
@@ -425,6 +426,14 @@ export default function HomePage() {
                 </div>
               )}
             </div>
+          </button>
+
+          {/* Group Booking FAB - Positioned below cart FAB */}
+          <button
+            onClick={handleGroupBookingClick}
+            className="absolute top-20 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 z-30 hover:scale-105 active:scale-95 border-2 border-white"
+          >
+            <Plus className="w-6 h-6" />
           </button>
         </div>
 

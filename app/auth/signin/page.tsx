@@ -86,11 +86,11 @@ export default function SignInPage() {
         <div className="p-6 max-w-md mx-auto bg-[#F9FCFF]">
           {/* Logo and Title */}
           <div className="text-center mb-8">
-            <img 
-              className="mx-auto w-full h-full object-contain"
-              src="/rubgo-login1.png"
-              alt="RubGO" 
-            />
+             <img 
+                className="w-48 h-48 object-contain"
+                src="/rubgo-login.png"
+                alt="RubHub Logo" 
+              />
             <h1 className="text-left text-md font-bold mb-2 text-green-700">Welcome Back</h1>
             <p className="text-gray-400">Choose your account type to sign in</p>
           </div>
@@ -162,7 +162,7 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#F9FCFF]">
       {/* Header */}
       <div className="p-4 border-b border-gray-800">
         <div className="flex items-center gap-4">
@@ -174,8 +174,8 @@ export default function SignInPage() {
             <span>Back</span>
           </button>
           <div className="flex-1 text-center">
-            <span className="text-sm text-gray-400">Signing in as </span>
-            <span className="text-[#71CBD1] font-semibold">
+            <span className="text-sm text-gray-600">Signing in as </span>
+            <span className="text-green-600 font-semibold">
               {userType === "therapist" ? "Therapist" : "Client"}
             </span>
           </div>
@@ -187,7 +187,7 @@ export default function SignInPage() {
         <div className="text-center mb-8">
           <img 
             className="mx-auto w-32 h-32 object-contain"
-            src="/logo-black.png"
+            src="/rubgo-login.png"
             alt="RubGo" 
           />
           <h1 className="text-2xl font-bold mb-2">
