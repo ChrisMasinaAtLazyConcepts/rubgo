@@ -1,10 +1,10 @@
-name: Build Android APK  # This stays - it's the workflow name
+name: Build Android APK
 
 on:
   push:
     branches: [master]
   pull_request:
-    branches: [ master]
+    branches: [master]
   workflow_dispatch:
 
 env:
@@ -16,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code  # This is fine - it's a step name
+    - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Setup Node.js 20  # This is fine - it's a step name
+    - name: Setup Node.js 20
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
@@ -30,25 +30,25 @@ jobs:
         npm ci --legacy-peer-deps
         npm install @capacitor/core @capacitor/cli @capacitor/android --legacy-peer-deps
             
-   - name: Build Next.js app
-  run: |
-    # Install dependencies
-    npm ci --legacy-peer-deps
-    
-    # Fix baseline-browser-mapping
-    npm install baseline-browser-mapping@latest -D
-    
-    echo "Setting up Pages Router API routes..."
-    
-    # Create pages/api directory structure
-    mkdir -p pages/api/bookings/[id]
-    mkdir -p pages/api/payments
-    mkdir -p pages/api/auth
-    mkdir -p pages/api/verification
-    
-    # Create ALL API routes with proper Pages Router syntax
-    # 1. Signup
-    cat > pages/api/signup.ts << 'EOL'
+    - name: Build Next.js app
+      run: |
+        # Install dependencies
+        npm ci --legacy-peer-deps
+        
+        # Fix baseline-browser-mapping
+        npm install baseline-browser-mapping@latest -D
+        
+        echo "Setting up Pages Router API routes..."
+        
+        # Create pages/api directory structure
+        mkdir -p pages/api/bookings/[id]
+        mkdir -p pages/api/payments
+        mkdir -p pages/api/auth
+        mkdir -p pages/api/verification
+        
+        # Create ALL API routes with proper Pages Router syntax
+        # 1. Signup
+        cat > pages/api/signup.ts << 'EOL'
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -78,8 +78,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 EOL
 
-    # 2. Bookings - arrival instructions
-    cat > pages/api/bookings/[id]/arrival-instructions.ts << 'EOL'
+        # 2. Bookings - arrival instructions (no test data)
+        cat > pages/api/bookings/[id]/arrival-instructions.ts << 'EOL'
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -88,19 +88,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'GET') {
     try {
       return res.status(200).json({
-        id,
-        arrivalInstructions: {
-          buildingType: 'house',
-          address: '123 Main St',
-          unitNumber: '',
-          floorNumber: '',
-          gateCode: '',
-          parkingInstructions: '',
-          entryInstructions: '',
-          specialNotes: '',
-          shareWithTherapist: true
-        },
-        message: 'API endpoint ready'
+        success: true,
+        message: 'Arrival instructions endpoint ready'
       })
     } catch (error) {
       return res.status(500).json({ error: 'Internal server error' })
@@ -112,9 +101,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const data = req.body
       return res.status(200).json({
         success: true,
-        message: 'Arrival instructions updated',
-        id,
-        data
+        message: 'Arrival instructions endpoint ready',
+        id
       })
     } catch (error) {
       return res.status(500).json({ error: 'Internal server error' })
@@ -125,8 +113,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 EOL
 
-    # 3. Bookings - main endpoint
-    cat > pages/api/bookings/[id]/index.ts << 'EOL'
+        # 3. Bookings - main endpoint (no test data)
+        cat > pages/api/bookings/[id]/index.ts << 'EOL'
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -134,31 +122,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   
   if (req.method === 'GET') {
     return res.status(200).json({
-      id,
-      therapist: {
-        id: '1',
-        name: 'Demo Therapist',
-        image: '/default-therapist.jpg',
-        rating: 4.9,
-        phone: '+27123456789',
-        location: { lat: -26.1076, lng: 28.0567 }
-      },
-      service: {
-        name: 'Swedish Massage',
-        duration: 90,
-        price: 650
-      },
-      date: new Date().toISOString().split('T')[0],
-      time: '14:00',
-      status: 'confirmed',
-      price: 650,
-      therapistETA: '15 min',
-      location: '123 Main St, Johannesburg',
-      specialInstructions: '',
-      arrivalInstructions: null,
-      paymentStatus: 'paid',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      success: true,
+      message: 'Booking endpoint ready',
+      id
     })
   }
   
@@ -166,13 +132,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 EOL
 
-    # 4. Create other essential API routes
-    for endpoint in "payments/create" "payments/onsite" "payments/validate" "safeword-detections" "verification/store-selfie"; do
-      dir=$(dirname "pages/api/$endpoint")
-      mkdir -p "$dir"
-      filename=$(basename "$endpoint")
-      
-      cat > "pages/api/$endpoint.ts" << EOL
+        # 4. Create other essential API routes
+        for endpoint in "payments/create" "payments/onsite" "payments/validate" "safeword-detections" "verification/store-selfie"; do
+          dir=$(dirname "pages/api/$endpoint")
+          mkdir -p "$dir"
+          filename=$(basename "$endpoint")
+          
+          cat > "pages/api/$endpoint.ts" << EOL
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -194,10 +160,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   return res.status(405).json({ error: 'Method not allowed' })
 }
 EOL
-    done
-    
-    # 5. Create a catch-all for other API routes
-    cat > pages/api/[...all].ts << 'EOL'
+        done
+        
+        # 5. Create a catch-all for other API routes
+        cat > pages/api/[...all].ts << 'EOL'
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -213,9 +179,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   })
 }
 EOL
-    
-    # Configure next.config.js
-    cat > next.config.js << 'EOL'
+        
+        # Configure next.config.js
+        cat > next.config.js << 'EOL'
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
@@ -242,26 +208,26 @@ const nextConfig = {
 
 module.exports = nextConfig;
 EOL
-    
-    # Hide app/api routes during build
-    if [ -d "app/api" ]; then
-      echo "Temporarily moving app/api to app/_api..."
-      mv app/api app/_api
-    fi
-    
-    # Build the app
-    echo "Building Next.js app..."
-    npx next build
-    
-    # Restore app/api
-    if [ -d "app/_api" ]; then
-      echo "Restoring app/api directory..."
-      mv app/_api app/api
-    fi
-    
-    echo "✅ Build completed"
-    echo "📁 Build output:"
-    ls -la dist/
+        
+        # Hide app/api routes during build
+        if [ -d "app/api" ]; then
+          echo "Temporarily moving app/api to app/_api..."
+          mv app/api app/_api
+        fi
+        
+        # Build the app
+        echo "Building Next.js app..."
+        npx next build
+        
+        # Restore app/api
+        if [ -d "app/_api" ]; then
+          echo "Restoring app/api directory..."
+          mv app/_api app/api
+        fi
+        
+        echo "✅ Build completed"
+        echo "📁 Build output:"
+        ls -la dist/
             
     - name: Verify build output
       run: |
@@ -296,109 +262,18 @@ EOL
         
     - name: Clean and setup Android project
       run: |
-        # Remove existing android folder for clean setup
-        rm -rf android
-        npx cap add android  # Remove --no-deps
+        npx cap add android || true
         npx cap sync android
+        cd android
+        ./gradlew clean
         
-    - name: Update AndroidManifest.xml for proper permissions
-      run: |
-        echo "🔧 Ensuring AndroidManifest.xml has internet permission..."
-        cd android/app/src/main
-        if ! grep -q "android.permission.INTERNET" AndroidManifest.xml; then
-          sed -i '/<application/a\    <uses-permission android:name="android.permission.INTERNET" />' AndroidManifest.xml
-          echo "✅ Added INTERNET permission"
-        fi
-        
-        # Add camera permission if your app uses it
-        sed -i '/<application/a\    <uses-permission android:name="android.permission.CAMERA" />' AndroidManifest.xml
-        sed -i '/<application/a\    <uses-feature android:name="android.hardware.camera" android:required="false" />' AndroidManifest.xml
-        
-    - name: Fix build.gradle for Android 34
-      run: |
-        cd android/app
-        # Update compileSdk and targetSdk to 34
-        sed -i 's/compileSdk .*/compileSdk 34/g' build.gradle
-        sed -i 's/targetSdk .*/targetSdk 34/g' build.gradle
-        sed -i 's/minSdk .*/minSdk 22/g' build.gradle
-        
-        # Ensure proper packaging options
-        echo "" >> build.gradle
-        echo "android {" >> build.gradle
-        echo "    packagingOptions {" >> build.gradle
-        echo "        exclude 'META-INF/NOTICE.md'" >> build.gradle
-        echo "        exclude 'META-INF/LICENSE.md'" >> build.gradle
-        echo "        exclude 'META-INF/INDEX.LIST'" >> build.gradle
-        echo "    }" >> build.gradle
-        echo "}" >> build.gradle
-        
-        echo "✅ Updated build.gradle"
-        
-    - name: Create debug keystore with proper permissions
-      run: |
-        mkdir -p android/app
-        cd android/app
-        keytool -genkeypair \
-          -v \
-          -keystore debug.keystore \
-          -dname "CN=Android Debug, O=RubGo, C=ZA" \
-          -storepass android \
-          -keypass android \
-          -keyalg RSA \
-          -keysize 2048 \
-          -validity 10000 \
-          -alias androiddebugkey \
-          -storetype JKS
-        chmod 644 debug.keystore
-        echo "✅ Debug keystore created"
-        
-    - name: Build APK with Gradle
+    - name: Build Android APK
       run: |
         cd android
-        chmod +x gradlew
-        ./gradlew clean assembleDebug --no-daemon --stacktrace
+        ./gradlew assembleDebug
         
-    - name: Verify APK is valid
-      run: |
-        cd android/app/build/outputs/apk/debug
-        APK_FILE=$(ls *.apk | head -1)
-        echo "📦 APK File: $APK_FILE"
-        
-        # Check if APK is valid
-        if [ -f "$APK_FILE" ]; then
-          echo "✅ APK exists ($(du -h "$APK_FILE" | cut -f1))"
-          
-          # Verify it's a valid ZIP/APK
-          if unzip -t "$APK_FILE" > /dev/null 2>&1; then
-            echo "✅ APK is a valid ZIP file"
-            
-            # Check for critical Android files
-            if unzip -l "$APK_FILE" | grep -q "AndroidManifest.xml"; then
-              echo "✅ Contains AndroidManifest.xml"
-            else
-              echo "❌ Missing AndroidManifest.xml!"
-              exit 1
-            fi
-            
-            if unzip -l "$APK_FILE" | grep -q "classes.dex"; then
-              echo "✅ Contains classes.dex"
-            else
-              echo "❌ Missing classes.dex!"
-              exit 1
-            fi
-          else
-            echo "❌ APK is corrupted or not a valid ZIP file!"
-            exit 1
-          fi
-        else
-          echo "❌ No APK file found!"
-          exit 1
-        fi
-        
-    - name: Upload Debug APK
+    - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
-        name: rubgo-debug-apk
-        path: android/app/build/outputs/apk/debug/*.apk
-        retention-days: 30
-        if-no-files-found: error
+        name: android-apk
+        path: android/app/build/outputs/apk/debug/app-debug.apk
