@@ -60,23 +60,11 @@ jobs:
         # 5. Explicitly add the Android platform
         npx cap add android
         
-    - name: Verify build output
-      run: |
-        echo "Checking build output:"
-        if [ -d ".next" ]; then
-          echo "✅ .next directory exists"
-        elif [ -d "out" ]; then
-          echo "✅ out directory exists"
-        else
-          echo "❌ No build output found!"
-          exit 1
-        fi
-        
-    - name: Setup Java 17
+    - name: Setup Java 21 for Android  # REPLACED Java 17 with Java 21
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
-        java-version: '17'
+        java-version: '21'
         
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
@@ -89,11 +77,13 @@ jobs:
       run: |
         sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" "cmdline-tools;latest"
     
-        
     - name: Build Android APK
       run: |
+        # Verify Java version (diagnostic step)
+        java -version
+        # Clean and build with the correct Java
         cd android
-        ./gradlew assembleDebug
+        ./gradlew clean assembleDebug
         
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
