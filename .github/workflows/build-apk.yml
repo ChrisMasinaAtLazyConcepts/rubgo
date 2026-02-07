@@ -2,9 +2,9 @@ name: Build Android APK  # This stays - it's the workflow name
 
 on:
   push:
-    branches: [main, master]
+    branches: [master]
   pull_request:
-    branches: [main, master]
+    branches: [ master]
   workflow_dispatch:
 
 env:
@@ -29,29 +29,7 @@ jobs:
       run: |
         npm ci --legacy-peer-deps
         npm install @capacitor/core @capacitor/cli @capacitor/android --legacy-peer-deps
-        
-    - name: Verify capacitor config exists
-      run: |
-        if [ ! -f capacitor.config.ts ]; then
-          echo "❌ capacitor.config.ts missing! Creating basic config..."
-          cat > capacitor.config.ts << EOL
-import { CapacitorConfig } from '@capacitor/cli';
-
-const config: CapacitorConfig = {
-  appId: 'com.rubgo.app',
-  appName: 'RubGo',
-  webDir: 'dist',
-  server: {
-    androidScheme: 'https'
-  }
-};
-
-export default config;
-EOL
-          echo "✅ Created capacitor.config.ts"
-        fi
-        cat capacitor.config.ts
-        
+            
     - name: Build Next.js app
       run: |
         npm run build || (echo "Build completed with warnings" && exit 0)
