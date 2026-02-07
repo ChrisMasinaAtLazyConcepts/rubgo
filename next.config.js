@@ -15,6 +15,9 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   
+    // Skip API routes for static export
+  skipTrailingSlashRedirect: true,
+  
   webpack: (config, { isServer }) => {
     // Fix for fs module in face-api.js and other Node.js modules
     if (!isServer) {
