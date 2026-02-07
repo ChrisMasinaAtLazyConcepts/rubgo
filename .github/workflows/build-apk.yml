@@ -49,15 +49,17 @@ jobs:
 
     - name: Prepare Capacitor Android
       run: |
-        # 3. Remove existing Android platform to allow clean re-add
-        rm -rf android
-        
-        # 4. Ensure the webDir in capacitor.config.ts points to the correct folder
-        # If your Next.js outputs to 'out', update it. If 'dist', ensure it exists.
-        # Let's check and sync
+        # Remove old platforms to ensure clean sync
+        rm -rf android ios
+
+        # Set the iOS deployment target BEFORE creating the platform
+        # This is the crucial fix for the Podfile error
+        npx cap config set ios.minVersion 15.0
+
+        # Sync to generate platforms with the correct settings
         npx cap sync
-        
-        # 5. Explicitly add the Android platform
+
+        # Explicitly add the Android platform
         npx cap add android
 
     # === ADD THIS NEW STEP HERE ===
