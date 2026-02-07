@@ -97,90 +97,94 @@ export default function TherapistOnboarding() {
   }
 
 	const handleTakePhoto = async (documentType: keyof OnboardingData['documents']) => {
-	  try {
-		// First, ensure models are loaded
-		await loadFaceApiModels();
+  let stream: MediaStream | null = null; // Declare outside try-catch
+  
+  try {
+    // First, ensure models are loaded
+    await loadFaceApiModels();
 
-		const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-		if (cameraRef.current) {
-		  cameraRef.current.srcObject = stream;
-		}
+    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    if (cameraRef.current) {
+      cameraRef.current.srcObject = stream;
+    }
 
-		// Wait for camera to be ready
-		await new Promise(resolve => setTimeout(resolve, 1000));
+    // Wait for camera to be ready
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
-		// Capture photo from video stream
-		const canvas = document.createElement('canvas');
-		const context = canvas.getContext('2d');
-		if (!context || !cameraRef.current) {
-		  throw new Error('Could not capture photo');
-		}
+    // Capture photo from video stream
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context || !cameraRef.current) {
+      throw new Error('Could not capture photo');
+    }
 
-		canvas.width = cameraRef.current.videoWidth;
-		canvas.height = cameraRef.current.videoHeight;
-		context.drawImage(cameraRef.current, 0, 0, canvas.width, canvas.height);
+    canvas.width = cameraRef.current.videoWidth;
+    canvas.height = cameraRef.current.videoHeight;
+    context.drawImage(cameraRef.current, 0, 0, canvas.width, canvas.height);
 
-		// Convert canvas to image data
-		const capturedImage = canvas.toDataURL('image/jpeg');
+    // Convert canvas to image data
+    const capturedImage = canvas.toDataURL('image/jpeg');
 
-		// Get the previously taken selfie (you'll need to store this somewhere)
-		const selfieImage = await getStoredSelfie(); // You need to implement this
+    // Get the previously taken selfie
+    const selfieImage = await getStoredSelfie();
 
-		if (!selfieImage) {
-		  throw new Error('No selfie found. Please take a selfie first.');
-		}
+    if (!selfieImage) {
+      throw new Error('No selfie found. Please take a selfie first.');
+    }
 
-		// Create image elements for face-api.js
-		const img1 = await faceapi.fetchImage(selfieImage);
-		const img2 = await faceapi.fetchImage(capturedImage);
+    // Create image elements for face-api.js
+    const img1 = await faceapi.fetchImage(selfieImage);
+    const img2 = await faceapi.fetchImage(capturedImage);
 
-		// Detect faces in both images
-		const detection1 = await faceapi
-		  .detectSingleFace(img1)
-		  .withFaceLandmarks()
-		  .withFaceDescriptor();
+    // Detect faces in both images
+    const detection1 = await faceapi
+      .detectSingleFace(img1)
+      .withFaceLandmarks()
+      .withFaceDescriptor();
 
-		const detection2 = await faceapi
-		  .detectSingleFace(img2)
-		  .withFaceLandmarks()
-		  .withFaceDescriptor();
+    const detection2 = await faceapi
+      .detectSingleFace(img2)
+      .withFaceLandmarks()
+      .withFaceDescriptor();
 
-		if (!detection1 || !detection2) {
-		  throw new Error('Could not detect faces in one or both images');
-		}
+    if (!detection1 || !detection2) {
+      throw new Error('Could not detect faces in one or both images');
+    }
 
-		// Compare using Euclidean distance
-		const distance = faceapi.euclideanDistance(
-		  detection1.descriptor, 
-		  detection2.descriptor
-		);
+    // Compare using Euclidean distance
+    const distance = faceapi.euclideanDistance(
+      detection1.descriptor, 
+      detection2.descriptor
+    );
 
-		// Similar if distance < 0.6 (adjust threshold as needed)
-		const isSamePerson = distance < 0.6;
+    // Similar if distance < 0.6 (adjust threshold as needed)
+    const isSamePerson = distance < 0.6;
 
-		console.log(`Face comparison distance: ${distance}, Is same person: ${isSamePerson}`);
+    console.log(`Face comparison distance: ${distance}, Is same person: ${isSamePerson}`);
 
-		// Handle the result
-		if (isSamePerson) {
-		  // Faces match - proceed with document processing
-		  await processDocumentPhoto(capturedImage, documentType);
-		} else {
-		  // Faces don't match - show error
-		  throw new Error('Face verification failed. Please ensure the document belongs to you.');
-		}
+    // Handle the result
+    if (isSamePerson) {
+      // Faces match - proceed with document processing
+      await processDocumentPhoto(capturedImage, documentType);
+    } else {
+      // Faces don't match - show error
+      throw new Error('Face verification failed. Please ensure the document belongs to you.');
+    }
 
-		// Stop camera stream
-		stream.getTracks().forEach(track => track.stop());
+    // Stop camera stream
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+    }
 
-	  } catch (error) {
-		console.error('Error in face comparison:', error);
-		// Stop stream if it exists
-		if (stream) {
-		  stream.getTracks().forEach(track => track.stop());
-		}
-		throw error;
-	  }
-	};
+  } catch (error) {
+    console.error('Error in face comparison:', error);
+    // Stop stream if it exists
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+    }
+    throw error;
+  }
+};
 	
 	
 	// Helper function to get stored selfie (you need to implement storage)
