@@ -47,6 +47,24 @@ jobs:
           exit 1
         fi
         
+    - name: Ensure Clean iOS Platform
+      run: |
+        # Remove any existing iOS platform completely
+        rm -rf ios
+        # Also clean any Capacitor ios config cache
+        rm -f capacitor.config.json
+        
+        # Verify capacitor.config.ts has the iOS minVersion
+        if grep -q "minVersion.*15.0" capacitor.config.ts 2>/dev/null; then
+          echo "✅ capacitor.config.ts already has iOS minVersion 15.0"
+        else
+          echo "⚠️  Adding iOS minVersion to capacitor.config.ts"
+          # Add ios config if not present
+          if ! grep -q "ios:" capacitor.config.ts 2>/dev/null; then
+            echo "  ios: {\n    minVersion: '15.0'\n  }," >> capacitor.config.ts
+          fi
+        fi    
+        
     - name: Setup iOS platform
       run: |
         # Remove existing iOS platform if exists
