@@ -8,6 +8,11 @@ export interface CustomerDetails {
 
 export interface TransactionDetails {
   m_payment_id?: string;
+  pf_payment_id: string;      // Missing in your object
+  payment_status: string;     // Missing in your object  
+  item_name: string;         // Missing in your object
+  merchant_id: string;       // Missing in your object
+  signature: string;         // Missing in your object
   amount: number;
   item_name: string;
   item_description?: string;
