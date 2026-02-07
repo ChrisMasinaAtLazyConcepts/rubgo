@@ -58,7 +58,10 @@ jobs:
         # Remove existing iOS platform if exists
         rm -rf ios
         
-        # Add iOS platform
+        # CRITICAL FIX: Set the minimum iOS version BEFORE adding the platform
+        npx cap config set ios.minVersion 15.0
+        
+        # Add iOS platform (it will now use the version we just set)
         npx cap add ios
         
         # Sync web assets
