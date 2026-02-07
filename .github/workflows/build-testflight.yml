@@ -1,14 +1,18 @@
 name: Build iOS for TestFlight
 
 on:
-  workflow_dispatch:  # Manual trigger only
+  workflow_dispatch:  # Manual trigger always available
   push:
-    branches: [main, master]
+    branches: [master, main]
     paths:
       - 'ios/**'
       - 'src/**'
+      - 'public/**'       # Adds web assets like icons
+      - 'out/**'          # OR 'dist/**' - Your build output folder
       - 'capacitor.config.*'
       - 'package.json'
+      - 'package-lock.json'
+      - 'next.config.*'   # Captures Next.js config changes
 
 env:
   NODE_VERSION: '20'
