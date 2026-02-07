@@ -9,7 +9,7 @@ on:
 
 env:
   NODE_VERSION: '20'
-  NPM_LEGACY_PEER_DEPS: 'true'
+  NPM_LEGACY_PEER_DEP: 'true'
 
 jobs:
   build:
@@ -38,200 +38,39 @@ jobs:
         # Fix baseline-browser-mapping
         npm install baseline-browser-mapping@latest -D
         
-        echo "Setting up Pages Router API routes..."
+        # Create minimal API routes for build
+        mkdir -p pages/api
         
-        # Create pages/api directory structure
-        mkdir -p pages/api/bookings/[id]
-        mkdir -p pages/api/payments
-        mkdir -p pages/api/auth
-        mkdir -p pages/api/verification
-        
-        # 1. Signup endpoint
-        cat > pages/api/signup.ts << 'EOF'
+        # Create a simple API route file
+        cat > pages/api/health.ts << 'EOF'
 import type { NextApiRequest, NextApiResponse } from 'next'
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method === 'POST') {
-    try {
-      const { email, password } = req.body
-      
-      if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password required' })
-      }
-      
-      return res.status(201).json({
-        success: true,
-        message: 'Signup endpoint ready'
-      })
-    } catch (error) {
-      return res.status(500).json({ error: 'Internal server error' })
-    }
-  }
-  
-  return res.status(405).json({ error: 'Method not allowed' })
-}
-EOF
-
-        # 2. Bookings - arrival instructions (no test data)
-        cat > pages/api/bookings/[id]/arrival-instructions.ts << 'EOF'
-import type { NextApiRequest, NextApiResponse } from 'next'
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { id } = req.query
-  
-  if (req.method === 'GET') {
-    try {
-      return res.status(200).json({
-        success: true,
-        message: 'Arrival instructions endpoint ready'
-      })
-    } catch (error) {
-      return res.status(500).json({ error: 'Internal server error' })
-    }
-  }
-  
-  if (req.method === 'PUT') {
-    try {
-      const data = req.body
-      return res.status(200).json({
-        success: true,
-        message: 'Arrival instructions endpoint ready',
-        id
-      })
-    } catch (error) {
-      return res.status(500).json({ error: 'Internal server error' })
-    }
-  }
-  
-  return res.status(405).json({ error: 'Method not allowed' })
-}
-EOF
-
-        # 3. Bookings - main endpoint (no test data)
-        cat > pages/api/bookings/[id]/index.ts << 'EOF'
-import type { NextApiRequest, NextApiResponse } from 'next'
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { id } = req.query
-  
-  if (req.method === 'GET') {
-    return res.status(200).json({
-      success: true,
-      message: 'Booking endpoint ready',
-      id
-    })
-  }
-  
-  return res.status(405).json({ error: 'Method not allowed' })
-}
-EOF
-
-        # 4. Create other essential API routes
-        for endpoint in "payments/create" "payments/onsite" "payments/validate" "safeword-detections" "verification/store-selfie"; do
-          dir=$(dirname "pages/api/$endpoint")
-          mkdir -p "$dir"
-          filename=$(basename "$endpoint")
-          
-          cat > "pages/api/$endpoint.ts" << EOF
-import type { NextApiRequest, NextApiResponse } from 'next'
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method === 'POST') {
-    return res.status(200).json({ 
-      success: true, 
-      message: '\${filename} endpoint ready',
-      data: req.body
-    })
-  }
-  
-  if (req.method === 'GET') {
-    return res.status(200).json({ 
-      success: true, 
-      message: '\${filename} endpoint ready' 
-    })
-  }
-  
-  return res.status(405).json({ error: 'Method not allowed' })
-}
-EOF
-        done
-        
-        # 5. Create a catch-all for other API routes
-        cat > pages/api/[...all].ts << 'EOF'
-import type { NextApiRequest, NextApiResponse } from 'next'
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { method, url } = req
-  
-  // Return success for any API call during build
-  return res.status(200).json({ 
-    success: true, 
-    message: 'API endpoint available',
-    method,
-    url,
-    note: 'Build-time placeholder'
-  })
+  return res.status(200).json({ status: 'ok', message: 'Build placeholder' })
 }
 EOF
         
-        # Configure next.config.js
+        # Create next.config.js for static export
         cat > next.config.js << 'EOF'
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
-  distDir: 'dist',
   images: { unoptimized: true },
-  skipTrailingSlashRedirect: true,
-  
-  exportPathMap: async function() {
-    return {
-      '/': { page: '/' },
-      '/home': { page: '/home' },
-      '/bookings': { page: '/bookings' },
-      '/checkout': { page: '/checkout' },
-      '/therapist/onboarding': { page: '/therapist/onboarding' },
-      '/login': { page: '/login' },
-    };
-  },
-  
   typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true },
-  
-  pageExtensions: ['tsx', 'ts', 'jsx', 'js']
+  eslint: { ignoreDuringBuilds: true }
 };
-
 module.exports = nextConfig;
 EOF
         
-        # Hide app/api routes during build
-        if [ -d "app/api" ]; then
-          echo "Temporarily moving app/api to app/_api..."
-          mv app/api app/_api
-        fi
-        
         # Build the app
-        echo "Building Next.js app..."
         npx next build
         
-        # Restore app/api
-        if [ -d "app/_api" ]; then
-          echo "Restoring app/api directory..."
-          mv app/_api app/api
-        fi
-        
-        echo "✅ Build completed"
-        echo "📁 Build output:"
-        ls -la dist/
-            
     - name: Verify build output
       run: |
         echo "Checking build output:"
         if [ -d ".next" ]; then
           echo "✅ .next directory exists"
-          ls -la .next/
-        elif [ -d "dist" ]; then
-          echo "✅ dist directory exists"
-          ls -la dist/
+        elif [ -d "out" ]; then
+          echo "✅ out directory exists"
         else
           echo "❌ No build output found!"
           exit 1
@@ -254,12 +93,10 @@ EOF
       run: |
         sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" "cmdline-tools;latest"
         
-    - name: Clean and setup Android project
+    - name: Setup Capacitor Android
       run: |
         npx cap add android || true
         npx cap sync android
-        cd android
-        ./gradlew clean
         
     - name: Build Android APK
       run: |
