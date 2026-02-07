@@ -1,15 +1,17 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.rubgo.app',
+  appId: 'com.rubhub.app',
   appName: 'RubHub',
-  webDir: 'dist',
+  webDir: '.next',  // Changed from 'dist' to '.next'
   server: {
     androidScheme: 'https'
   },
   android: {
-    allowMixedContent: true,
-    useLegacyBridge: true
+    buildOptions: {
+      keystorePath: 'debug.keystore',
+      keystoreAlias: 'androiddebugkey'
+    }
   }
 };
 

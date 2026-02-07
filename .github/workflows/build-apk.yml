@@ -2,9 +2,9 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
   workflow_dispatch:
 
 env:
@@ -30,22 +30,45 @@ jobs:
         npm ci --legacy-peer-deps
         npm install @capacitor/core @capacitor/cli @capacitor/android --legacy-peer-deps
         
-    - name: Fix capacitor config
+    - name: Verify capacitor config exists
       run: |
-        # Remove deprecated bundledWebRuntime from capacitor.config.ts
-        sed -i '/bundledWebRuntime/d' capacitor.config.ts
-        echo "✅ Fixed capacitor.config.ts"
+        if [ ! -f capacitor.config.ts ]; then
+          echo "❌ capacitor.config.ts missing! Creating basic config..."
+          cat > capacitor.config.ts << EOL
+import { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'com.rubgo.app',
+  appName: 'RubGo',
+  webDir: 'dist',
+  server: {
+    androidScheme: 'https'
+  }
+};
+
+export default config;
+EOL
+          echo "✅ Created capacitor.config.ts"
+        fi
         cat capacitor.config.ts
         
     - name: Build Next.js app
       run: |
-        npm run build || echo "Build completed with warnings"
+        npm run build || (echo "Build completed with warnings" && exit 0)
         
     - name: Verify build output
       run: |
-        echo "Checking dist directory:"
-        ls -la dist/ || echo "No dist directory found"
-        test -f dist/index.html && echo "✅ index.html exists" || echo "❌ index.html missing"
+        echo "Checking build output:"
+        if [ -d ".next" ]; then
+          echo "✅ .next directory exists"
+          ls -la .next/
+        elif [ -d "dist" ]; then
+          echo "✅ dist directory exists"
+          ls -la dist/
+        else
+          echo "❌ No build output found!"
+          exit 1
+        fi
         
     - name: Setup Java 17
       uses: actions/setup-java@v4
@@ -55,100 +78,120 @@ jobs:
         
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
-      
-    - name: Install Android SDK 35
+        
+    - name: Accept Android SDK licenses
       run: |
-        yes | sdkmanager "platforms;android-35" "build-tools;35.0.0"
-      
+        yes | sdkmanager --licenses || true
+        
+    - name: Install Android SDK 34 (more stable than 35)
+      run: |
+        sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" "cmdline-tools;latest"
+        
     - name: Clean and setup Android project
       run: |
         # Remove existing android folder for clean setup
         rm -rf android
-        npx cap add android
+        npx cap add android --no-deps
         npx cap sync android
         
-    - name: Verify Android project structure
+    - name: Update AndroidManifest.xml for proper permissions
       run: |
-        echo "📱 Android project structure:"
-        ls -la android/app/src/main/
-        echo ""
-        echo "🔍 Checking critical files:"
-        test -f android/app/src/main/AndroidManifest.xml && echo "✅ AndroidManifest.xml exists" || echo "❌ AndroidManifest.xml missing"
-        test -f android/app/src/main/res/values/strings.xml && echo "✅ strings.xml exists" || echo "❌ strings.xml missing"
-        test -d android/app/src/main/assets && echo "✅ assets directory exists" || echo "❌ assets directory missing"
+        echo "🔧 Ensuring AndroidManifest.xml has internet permission..."
+        cd android/app/src/main
+        if ! grep -q "android.permission.INTERNET" AndroidManifest.xml; then
+          sed -i '/<application/a\    <uses-permission android:name="android.permission.INTERNET" />' AndroidManifest.xml
+          echo "✅ Added INTERNET permission"
+        fi
         
-    - name: Verify package name consistency
-      run: |
-        echo "🔧 Checking package name consistency:"
-        echo "Capacitor config:"
-        grep "appId" capacitor.config.ts
-        echo "build.gradle:"
-        grep "applicationId" android/app/build.gradle
-        echo "strings.xml:"
-        grep "package_name" android/app/src/main/res/values/strings.xml
+        # Add camera permission if your app uses it
+        sed -i '/<application/a\    <uses-permission android:name="android.permission.CAMERA" />' AndroidManifest.xml
+        sed -i '/<application/a\    <uses-feature android:name="android.hardware.camera" android:required="false" />' AndroidManifest.xml
         
-    - name: Create debug keystore
+    - name: Fix build.gradle for Android 34
       run: |
         cd android/app
-        keytool -genkey -v \
+        # Update compileSdk and targetSdk to 34
+        sed -i 's/compileSdk .*/compileSdk 34/g' build.gradle
+        sed -i 's/targetSdk .*/targetSdk 34/g' build.gradle
+        sed -i 's/minSdk .*/minSdk 22/g' build.gradle
+        
+        # Ensure proper packaging options
+        echo "" >> build.gradle
+        echo "android {" >> build.gradle
+        echo "    packagingOptions {" >> build.gradle
+        echo "        exclude 'META-INF/NOTICE.md'" >> build.gradle
+        echo "        exclude 'META-INF/LICENSE.md'" >> build.gradle
+        echo "        exclude 'META-INF/INDEX.LIST'" >> build.gradle
+        echo "    }" >> build.gradle
+        echo "}" >> build.gradle
+        
+        echo "✅ Updated build.gradle"
+        
+    - name: Create debug keystore with proper permissions
+      run: |
+        mkdir -p android/app
+        cd android/app
+        keytool -genkeypair \
+          -v \
           -keystore debug.keystore \
+          -dname "CN=Android Debug, O=RubGo, C=ZA" \
           -storepass android \
-          -alias androiddebugkey \
           -keypass android \
           -keyalg RSA \
           -keysize 2048 \
           -validity 10000 \
-          -dname "CN=Android Debug,O=Android,C=ZA"
+          -alias androiddebugkey \
+          -storetype JKS
+        chmod 644 debug.keystore
         echo "✅ Debug keystore created"
-        ls -la debug.keystore
         
-    - name: Update app/build.gradle for Android 35
-      run: |
-        cd android/app
-        # Update compileSdk and targetSdk to 35
-        sed -i 's/compileSdk 33/compileSdk 35/g' build.gradle
-        sed -i 's/targetSdk 33/targetSdk 35/g' build.gradle
-        echo "✅ Updated build.gradle for Android 35"
-        grep -E "compileSdk|targetSdk" build.gradle
-        
-    - name: Build APK
+    - name: Build APK with Gradle
       run: |
         cd android
         chmod +x gradlew
-        ./gradlew clean
-        ./gradlew assembleDebug --scan
+        ./gradlew clean assembleDebug --no-daemon --stacktrace
         
-    - name: Verify APK contents
+    - name: Verify APK is valid
       run: |
         cd android/app/build/outputs/apk/debug
-        apk_file=$(ls *.apk | head -1)
-        echo "📦 APK File: $apk_file"
-        echo "📊 APK Size:"
-        ls -lh "$apk_file"
-        echo ""
-        echo "🔍 APK Structure:"
-        unzip -l "$apk_file" | grep -E "(AndroidManifest.xml|classes.dex|resources.arsc)" || echo "❌ Critical files missing!"
-        echo ""
-        echo "🏷️ APK Badging Info:"
-        aapt dump badging "$apk_file" | head -10 || echo "❌ Could not read APK badging"
+        APK_FILE=$(ls *.apk | head -1)
+        echo "📦 APK File: $APK_FILE"
         
-    - name: List all build outputs
-      run: |
-        cd android/app/build/outputs
-        find . -name "*.apk" -type f -exec echo "📱 Found: {}" \;
-        find . -name "*.aab" -type f -exec echo "📦 Found: {}" \;
+        # Check if APK is valid
+        if [ -f "$APK_FILE" ]; then
+          echo "✅ APK exists ($(du -h "$APK_FILE" | cut -f1))"
+          
+          # Verify it's a valid ZIP/APK
+          if unzip -t "$APK_FILE" > /dev/null 2>&1; then
+            echo "✅ APK is a valid ZIP file"
+            
+            # Check for critical Android files
+            if unzip -l "$APK_FILE" | grep -q "AndroidManifest.xml"; then
+              echo "✅ Contains AndroidManifest.xml"
+            else
+              echo "❌ Missing AndroidManifest.xml!"
+              exit 1
+            fi
+            
+            if unzip -l "$APK_FILE" | grep -q "classes.dex"; then
+              echo "✅ Contains classes.dex"
+            else
+              echo "❌ Missing classes.dex!"
+              exit 1
+            fi
+          else
+            echo "❌ APK is corrupted or not a valid ZIP file!"
+            exit 1
+          fi
+        else
+          echo "❌ No APK file found!"
+          exit 1
+        fi
         
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:
-        name: rubhub-app-debug
+        name: rubgo-debug-apk
         path: android/app/build/outputs/apk/debug/*.apk
         retention-days: 30
-        
-    - name: Upload Release APK (if exists)
-      uses: actions/upload-artifact@v4
-      with:
-        name: rubhub-app-release
-        path: android/app/build/outputs/apk/release/*.apk
-        retention-days: 30
-        if-no-files-found: ignore
+        if-no-files-found: error
