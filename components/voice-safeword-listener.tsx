@@ -49,7 +49,96 @@ export function VoiceSafewordListener({
   const SAFEWORDS = ["STOP", "HELP", "RED", "SAFEWORD", "EMERGENCY"]
   const VOICE_MATCH_THRESHOLD = 0.7
   const COOLDOWN_PERIOD = 5000 // 5 seconds between detections
+
+  // ==================== FIXED AUDIO FUNCTIONS ====================
   
+  // Convert Float32Array to Audio Blob - FIXED VERSION
+  const float32ArrayToAudioBlob = async (buffer: Float32Array, sampleRate: number): Promise<Blob> => {
+    try {
+      const audioContext = new AudioContext({ sampleRate })
+      
+      // Create audio buffer and properly copy the data
+      const audioBuffer = audioContext.createBuffer(1, buffer.length, sampleRate)
+      
+      // FIX: Get the channel data and copy buffer values
+      const channelData = audioBuffer.getChannelData(0)
+      // Use set() for better performance
+      channelData.set(buffer)
+      
+      // Encode to WAV format
+      const wavBuffer = encodeWAV(audioBuffer)
+      return new Blob([wavBuffer], { type: 'audio/wav' })
+      
+    } catch (error) {
+      console.error('Error converting Float32Array to Audio Blob:', error)
+      throw error
+    }
+  }
+
+  // Helper function to encode buffer as WAV
+  const encodeWAV = (audioBuffer: AudioBuffer): ArrayBuffer => {
+    const numChannels = audioBuffer.numberOfChannels
+    const sampleRate = audioBuffer.sampleRate
+    const length = audioBuffer.length
+    
+    // Create WAV header
+    const buffer = new ArrayBuffer(44 + length * numChannels * 2)
+    const view = new DataView(buffer)
+    
+    // Write WAV header
+    writeString(view, 0, 'RIFF')
+    view.setUint32(4, 36 + length * numChannels * 2, true)
+    writeString(view, 8, 'WAVE')
+    writeString(view, 12, 'fmt ')
+    view.setUint32(16, 16, true)
+    view.setUint16(20, 1, true)
+    view.setUint16(22, numChannels, true)
+    view.setUint32(24, sampleRate, true)
+    view.setUint32(28, sampleRate * numChannels * 2, true)
+    view.setUint16(32, numChannels * 2, true)
+    view.setUint16(34, 16, true)
+    writeString(view, 36, 'data')
+    view.setUint32(40, length * numChannels * 2, true)
+    
+    // Write audio data
+    const channelData = audioBuffer.getChannelData(0)
+    let offset = 44
+    for (let i = 0; i < channelData.length; i++) {
+      const sample = Math.max(-1, Math.min(1, channelData[i]))
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true)
+      offset += 2
+    }
+    
+    return buffer
+  }
+
+  // Helper function to write strings to DataView
+  const writeString = (view: DataView, offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i))
+    }
+  }
+
+  // Average multiple audio buffers for voice profiling
+  const averageAudioBuffers = (buffers: Float32Array[]): Float32Array => {
+    if (buffers.length === 0) return new Float32Array()
+    
+    const length = buffers[0].length
+    const result = new Float32Array(length)
+    
+    for (let i = 0; i < length; i++) {
+      let sum = 0
+      for (let j = 0; j < buffers.length; j++) {
+        sum += buffers[j][i]
+      }
+      result[i] = sum / buffers.length
+    }
+    
+    return result
+  }
+  
+  // ==================== REST OF THE COMPONENT ====================
+
   // Initialize audio context and request microphone permission
   const initializeAudio = useCallback(async () => {
     try {
@@ -100,7 +189,6 @@ export function VoiceSafewordListener({
     const analyser = analyserRef.current
     const bufferLength = analyser.frequencyBinCount
     const dataArray = new Uint8Array(bufferLength)
-    const audioBuffer = new Float32Array(4096)
     
     const processAudio = () => {
       if (!isListening || !isActive) return
@@ -163,38 +251,46 @@ export function VoiceSafewordListener({
       recognition.maxAlternatives = 3
       recognition.lang = 'en-US'
       
-      // Create audio blob from buffer
+      // Create audio blob from buffer using fixed function
       const latestBuffer = audioBuffersRef.current[audioBuffersRef.current.length - 1]
       const audioBlob = await float32ArrayToAudioBlob(latestBuffer.buffer, latestBuffer.sampleRate)
       
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript.toUpperCase()
-        const confidence = event.results[0][0].confidence
-        
-        // Check for safewords
-        SAFEWORDS.forEach(word => {
-          if (transcript.includes(word) && confidence > 0.7) {
-            // Additional voice matching if voice profile exists
-            if (voiceProfile && calibrationComplete) {
-              const voiceMatchScore = calculateVoiceMatch(latestBuffer.buffer, voiceProfile)
-              if (voiceMatchScore > VOICE_MATCH_THRESHOLD) {
-                triggerSafewordDetection(word, confidence, voiceMatchScore)
+        const result = event.results[0]
+        if (result && result[0]) {
+          const transcript = result[0].transcript.toUpperCase()
+          const confidence = result[0].confidence
+          
+          // Check for safewords
+          SAFEWORDS.forEach(word => {
+            if (transcript.includes(word) && confidence > 0.7) {
+              // Additional voice matching if voice profile exists
+              if (voiceProfile && calibrationComplete) {
+                const voiceMatchScore = calculateVoiceMatch(latestBuffer.buffer, voiceProfile)
+                if (voiceMatchScore > VOICE_MATCH_THRESHOLD) {
+                  triggerSafewordDetection(word, confidence, voiceMatchScore)
+                }
+              } else {
+                // Without voice profile, just use transcript confidence
+                triggerSafewordDetection(word, confidence, 1.0)
               }
-            } else {
-              // Without voice profile, just use transcript confidence
-              triggerSafewordDetection(word, confidence, 1.0)
             }
-          }
-        })
+          })
+        }
       }
       
-      // Convert blob to array buffer and process
-      const arrayBuffer = await audioBlob.arrayBuffer()
-      const audioContext = new AudioContext()
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error:", event.error)
+      }
       
-      // Create a new audio source and connect to recognition (simplified approach)
-      recognition.start()
+      // Start recognition with blob (simplified - browser may not support direct blob input)
+      // Note: Most browsers require user interaction for speech recognition
+      // This is a simplified implementation
+      try {
+        recognition.start()
+      } catch (error) {
+        console.error("Speech recognition start error:", error)
+      }
       
     } catch (error) {
       console.error("Error processing audio:", error)
@@ -291,43 +387,6 @@ export function VoiceSafewordListener({
       collectSample()
     }, 2000)
   }, [])
-
-  // Convert Float32Array to Audio Blob
-  const float32ArrayToAudioBlob = async (buffer: Float32Array, sampleRate: number): Promise<Blob> => {
-    const audioContext = new AudioContext({ sampleRate })
-    const audioBuffer = audioContext.createBuffer(1, buffer.length, sampleRate)
-    audioBuffer.copyToChannel(buffer, 0)
-    
-    const audioData = await new Promise<ArrayBuffer>((resolve) => {
-      const offlineContext = new OfflineAudioContext(1, buffer.length, sampleRate)
-      const source = offlineContext.createBufferSource()
-      source.buffer = audioBuffer
-      source.connect(offlineContext.destination)
-      source.start()
-      
-      offlineContext.startRendering().then(resolve)
-    })
-    
-    return new Blob([audioData], { type: 'audio/wav' })
-  }
-
-  // Average multiple audio buffers for voice profiling
-  const averageAudioBuffers = (buffers: Float32Array[]): Float32Array => {
-    if (buffers.length === 0) return new Float32Array()
-    
-    const length = buffers[0].length
-    const result = new Float32Array(length)
-    
-    for (let i = 0; i < length; i++) {
-      let sum = 0
-      for (let j = 0; j < buffers.length; j++) {
-        sum += buffers[j][i]
-      }
-      result[i] = sum / buffers.length
-    }
-    
-    return result
-  }
 
   // Toggle listening state
   const toggleListening = () => {
