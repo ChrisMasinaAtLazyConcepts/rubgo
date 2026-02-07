@@ -41,25 +41,21 @@ jobs:
         # Create minimal API routes for build
         mkdir -p pages/api
         
-        # Create a simple API route file
-        cat > pages/api/health.ts << 'EOF'
-import type { NextApiRequest, NextApiResponse } from 'next'
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  return res.status(200).json({ status: 'ok', message: 'Build placeholder' })
-}
-EOF
+        # Create a simple API route file using echo instead of cat with heredoc
+        echo "import type { NextApiRequest, NextApiResponse } from 'next'
+        export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+          return res.status(200).json({ status: 'ok', message: 'Build placeholder' })
+        }" > pages/api/health.ts
         
-        # Create next.config.js for static export
-        cat > next.config.js << 'EOF'
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  output: 'export',
-  images: { unoptimized: true },
-  typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true }
-};
-module.exports = nextConfig;
-EOF
+        # Create next.config.js for static export using echo
+        echo "/** @type {import('next').NextConfig} */
+        const nextConfig = {
+          output: 'export',
+          images: { unoptimized: true },
+          typescript: { ignoreBuildErrors: true },
+          eslint: { ignoreDuringBuilds: true }
+        };
+        module.exports = nextConfig;" > next.config.js
         
         # Build the app
         npx next build
