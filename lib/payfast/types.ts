@@ -67,14 +67,37 @@ export interface PaymentRequest {
   options?: TransactionOptions;
 }
 
+// In ./lib/payfast/types.ts
 export interface PaymentResponse {
   success: boolean;
   paymentId?: string;
-  redirectUrl?: string;
   error?: string;
+  
+  // For standard payments
   formHtml?: string;
+  redirectUrl?: string;
+  
+  // For onsite payments
+  onsiteData?: any; // Add this property
+  
+  // For status checks
+  status?: string;
+  details?: any;
+  
+  // For cancellations
+  cancelled?: boolean;
+  
+  // For refunds
+  refundId?: string;
+  refundedAmount?: number;
 }
 
+export interface OnsitePaymentResponse {
+  uuid: string;
+  status: string;
+  payment_id?: string;
+  [key: string]: any;
+}
 export interface NotificationData {
   m_payment_id?: string;
   pf_payment_id: string;
@@ -101,10 +124,6 @@ export interface NotificationData {
   signature: string;
   token?: string;
   billing_date?: string;
-}
-
-export interface OnsitePaymentResponse {
-  uuid: string;
 }
 
 export interface ValidationResult {
