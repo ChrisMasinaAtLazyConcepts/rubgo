@@ -181,27 +181,34 @@ export function BookingLoading({
     const total = calculateTotal()
 
     // Include medical info in custom data
-    const transactionDetails: TransactionDetails = {
-      m_payment_id: `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      amount: total,
-      item_name: getBookingTitle(),
-      item_description: getBookingDescription(),
-      custom_str1: JSON.stringify({
-        bookingType: finalBookingType,
-        therapistId: therapist?.id,
-        serviceId: service?.id,
-        cartItems: finalCartItems.map(item => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-        })),
-        medicalInfo: medicalInfo,
-        consentGiven: consentGiven,
-        timestamp: new Date().toISOString()
-      }),
-      custom_int1: finalBookingType === 'group' ? finalCartItems.length : 1,
-    }
-
+	const transactionDetails: TransactionDetails = {
+	  // Required PayFast fields
+	  pf_payment_id: `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+	  payment_status: 'COMPLETE', // or 'PENDING' if not yet paid
+	  merchant_id: process.env.PAYFAST_MERCHANT_ID || 'your-merchant-id',
+	  signature: '...', // You'll need to generate this
+	  
+	  // Your existing fields (but adjust naming if needed)
+	  amount: total,
+	  item_name: getBookingTitle(),
+	  item_description: getBookingDescription(),
+	  
+	  // Custom fields
+	  custom_str1: JSON.stringify({
+		bookingType: finalBookingType,
+		therapistId: therapist?.id,
+		serviceId: service?.id,
+		cartItems: finalCartItems.map(item => ({
+		  id: item.id,
+		  name: item.name,
+		  price: item.price,
+		})),
+		medicalInfo: medicalInfo,
+		consentGiven: consentGiven,
+		timestamp: new Date().toISOString()
+	  }),
+	  custom_int1: finalBookingType === 'group' ? finalCartItems.length : 1,
+	}
     const options = {
       payment_method: 'cc' as const,
       email_confirmation: true,
