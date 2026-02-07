@@ -12,6 +12,10 @@ const config: CapacitorConfig = {
       keystorePath: 'debug.keystore',
       keystoreAlias: 'androiddebugkey'
     }
+  },
+  ios: {
+    scheme: 'App',
+    minVersion: '15.0' 
   }
 };
 

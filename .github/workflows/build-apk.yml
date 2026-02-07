@@ -2,11 +2,11 @@ name: Build Android APK
 
 on:
   push:
-    branches: []
+    branches: [master]
   pull_request:
-    branches: []
+    branches: [master]
   workflow_dispatch:
-
+  
 env:
   NODE_VERSION: '20'
   NPM_LEGACY_PEER_DEP: 'true'

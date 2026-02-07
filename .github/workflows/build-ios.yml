@@ -4,16 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches: [master]
-    paths:
-      - 'ios/**'
-      - 'src/**'
-      - 'public/**'        # Icons, manifest
-      - 'out/**'           # <-- ADD THIS (or 'dist/**')
-      - 'capacitor.config.*'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'next.config.*'    # Next.js config
-
 env:
   NODE_VERSION: '20'
   NPM_LEGACY_PEER_DEPS: 'true'
