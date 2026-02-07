@@ -3,7 +3,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.rubhub.app',
   appName: 'RubHub',
-  webDir: '.next',  // Changed from 'dist' to '.next'
+  webDir: 'dist', 
   server: {
     androidScheme: 'https'
   },

@@ -32,14 +32,29 @@ jobs:
             
     - name: Build Next.js app
       run: |
-        # Install Next.js static export capability
-        npm install next@latest --legacy-peer-deps
-                
-        # Build with static export
-        npm run build
-        
+        # Install a specific, stable Next.js version compatible with static export
+        npm install next@^15.4.0 --legacy-peer-deps
+
+        # Ensure next.config.js is configured for static export to 'out' directory
+        cat > next.config.js << 'EOL'
+        /** @type {import('next').NextConfig} */
+        const nextConfig = {
+          output: 'export',      # Required for Capacitor
+          distDir: 'dist',        # Output folder
+          images: {
+            unoptimized: true,   # Required for static export
+          },
+          // Remove any 'webpack()' function if it exists, as it conflicts with Turbopack.
+        };
+
+        module.exports = nextConfig;
+        EOL
+
+        # Build using Webpack explicitly
+        npx next build --webpack
+
         # Verify the output
-        echo "Checking build output:"
+        echo "Checking build output in 'out/':"
         ls -la out/
         
     - name: Verify build output
