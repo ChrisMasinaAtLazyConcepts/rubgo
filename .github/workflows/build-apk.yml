@@ -30,35 +30,30 @@ jobs:
         npm ci --legacy-peer-deps
         npm install @capacitor/core @capacitor/cli @capacitor/android --legacy-peer-deps
             
-   - name: Build Next.js app
+    - name: Build Next.js app
       run: |
-        # Install dependencies
-        npm ci --legacy-peer-deps
-        
-        # Create environment file if missing
-        if [ ! -f ".env.local" ]; then
-          echo "API_BASE_URL=http://localhost:3000/api" >> .env.local
-        fi
-        
-        # Build with static export
+        # Install a modern Next.js version that supports the --webpack flag
+        npm install next@^16 --legacy-peer-deps
+
         cat > next.config.js << 'EOL'
         /** @type {import('next').NextConfig} */
         const nextConfig = {
-          output: 'export',
-          distDir: 'dist',
-          images: { unoptimized: true },
-          // If you have webpack config, remove it or migrate to Turbopack
-          // webpack: (config) => { ... }  // REMOVE THIS LINE IF IT EXISTS
+          output: 'export',      // Required for Capacitor
+          distDir: 'dist',       // Output to 'dist' folder
+          images: {
+            unoptimized: true,   // Required for static export
+          },
+          // Force Webpack bundler for build (optional, as it's the default for `next build`)
         };
         module.exports = nextConfig;
         EOL
-    
-        # Build the app
-        npx next build
-        
-        echo "✅ Build completed"
+
+        # Build with Webpack using the `--webpack` flag
+        npx next build --webpack
+
+        echo "Build output in 'dist/':"
         ls -la dist/
-                
+            
     - name: Verify build output
       run: |
         echo "Checking build output:"
