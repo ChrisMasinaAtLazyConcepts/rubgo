@@ -156,7 +156,13 @@ jobs:
         path: ios/build/App.ipa
         retention-days: 7
         
-    - name: Cleanup keychain (optional)
-      if: always()
+    - name: Cleanup keychain
+      if: always()  # This ensures it runs even if previous steps fail
       run: |
-        security delete-keychain build.keychain
+        # Check if keychain exists before trying to delete it
+        if security list-keychains | grep -q "build.keychain"; then
+          echo "Deleting temporary build keychain..."
+          security delete-keychain build.keychain || echo "Keychain might already be deleted"
+        else
+          echo "No temporary keychain found to delete"
+        fi
