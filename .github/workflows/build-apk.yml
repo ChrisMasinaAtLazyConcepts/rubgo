@@ -59,6 +59,21 @@ jobs:
         
         # 5. Explicitly add the Android platform
         npx cap add android
+
+    # === ADD THIS NEW STEP HERE ===
+    - name: Fix iOS Deployment Target for Pods
+      run: |
+        # Create or update the ios/App/Podfile to set a modern iOS version
+        # This prevents the "higher minimum deployment target" error
+        if [ -f "ios/App/Podfile" ]; then
+          echo "Updating existing Podfile deployment target..."
+          # This command finds the 'platform :ios' line and updates the version
+          sed -i.bak "s/platform :ios, '.*'/platform :ios, '15.0'/g" ios/App/Podfile
+          echo "✅ Podfile updated to target iOS 15.0"
+        else
+          echo "ℹ️ Podfile not found, it will be created by Capacitor later."
+        fi
+    # ==============================
         
     - name: Setup Java 21 for Android  # REPLACED Java 17 with Java 21
       uses: actions/setup-java@v4
