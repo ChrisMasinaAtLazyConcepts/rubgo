@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK  # This stays - it's the workflow name
 
 on:
   push:
@@ -16,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
+    - name: Checkout code  # This is fine - it's a step name
       uses: actions/checkout@v4
       
-    - name: Setup Node.js 20
+    - name: Setup Node.js 20  # This is fine - it's a step name
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
