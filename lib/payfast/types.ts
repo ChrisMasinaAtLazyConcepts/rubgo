@@ -6,6 +6,13 @@ export interface CustomerDetails {
   fica_idnumber?: string;
 }
 
+// In ./lib/payfast/types.ts
+export interface ValidationResult {
+  isValid: boolean;
+  errors?: string[];
+  validatedData?: any; // Add this property
+}
+
 export interface TransactionDetails {
   m_payment_id?: string;
   pf_payment_id: string;      // Missing in your object
@@ -124,9 +131,4 @@ export interface NotificationData {
   signature: string;
   token?: string;
   billing_date?: string;
-}
-
-export interface ValidationResult {
-  isValid: boolean;
-  errors?: string[];
 }
