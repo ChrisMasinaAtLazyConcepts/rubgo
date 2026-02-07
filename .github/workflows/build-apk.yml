@@ -36,7 +36,7 @@ jobs:
         npm ci --legacy-peer-deps
         
         # Fix baseline-browser-mapping
-        npm install baseline-browser-mapping@latest -D
+        npm install baseline-browser-mapping@latest -D --legacy-peer-deps
         
         # Create minimal API routes for build
         mkdir -p pages/api
