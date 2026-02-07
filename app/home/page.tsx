@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { BottomNav } from "@/components/bottom-nav"
 import { Button } from "@/components/ui/button"
-import { Search, Bell, MapPin, Navigation, Plus, X, Clock, User, Users as UsersIcon, Heart, Users as Family, Briefcase, MessageCircle, ShoppingCart } from "lucide-react"
+import { 
+  Search, Bell, MapPin, Navigation, Plus, X, Clock, 
+  User, Users as UsersIcon, Heart, Users as Family, 
+  Briefcase, MessageCircle, ShoppingCart, Users // ← Add Users here
+} from "lucide-react"
 import { FilterOptions  } from "@/lib/types"
 import { therapists, type Therapist, type MassageService } from "@/lib/massage-data"
 import { MobileHeader } from "@/components/mobile-header"
