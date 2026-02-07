@@ -33,7 +33,7 @@ jobs:
     - name: Build Next.js app
       run: |
         # Install Next.js static export capability
-        npm install next@latest
+        npm install next@latest --legacy-peer-deps
         
         # Create or update next.config.js for static export
         cat > next.config.js << 'EOL'
@@ -50,30 +50,12 @@ jobs:
         module.exports = nextConfig;
         EOL
                 
-                # Build with static export
-                npm run build
-                
-                # Verify the output
-                echo "Checking build output:"
-                ls -la out/
-                
-            # Then update capacitor.config.ts to point to 'out' directory:
-            - name: Update capacitor.config.ts for static export
-              run: |
-                cat > capacitor.config.ts << 'EOL'
-        import { CapacitorConfig } from '@capacitor/cli';
-
-        const config: CapacitorConfig = {
-          appId: 'com.rubgo.app',
-          appName: 'RubGo',
-          webDir: 'out',  # Changed from 'dist' to 'out'
-          server: {
-            androidScheme: 'https'
-          }
-        };
-
-        export default config;
-        EOL
+        # Build with static export
+        npm run build
+        
+        # Verify the output
+        echo "Checking build output:"
+        ls -la out/
         
     - name: Verify build output
       run: |
