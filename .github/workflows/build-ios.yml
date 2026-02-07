@@ -47,67 +47,30 @@ jobs:
           exit 1
         fi
         
-    - name: Ensure Clean iOS Platform
+      - name: Ensure Clean iOS Platform
       run: |
-        # Remove any existing iOS platform completely
-        rm -rf ios
-        # Also clean any Capacitor ios config cache
-        rm -f capacitor.config.json
-        
-        # Verify capacitor.config.ts has the iOS minVersion
-        if grep -q "minVersion.*15.0" capacitor.config.ts 2>/dev/null; then
-          echo "✅ capacitor.config.ts already has iOS minVersion 15.0"
-        else
-          echo "⚠️  Adding iOS minVersion to capacitor.config.ts"
-          # Add ios config if not present
-          if ! grep -q "ios:" capacitor.config.ts 2>/dev/null; then
-            echo "  ios: {\n    minVersion: '15.0'\n  }," >> capacitor.config.ts
-          fi
-        fi    
-        
+        # Force a clean state for iOS
+        rm -rf ios capacitor.config.json
+        npx cap config set ios.minVersion 15.0
+
     - name: Setup iOS platform
       run: |
-        # Remove existing iOS platform if exists
-        rm -rf ios
-        
-        # CRITICAL FIX: Set the minimum iOS version BEFORE adding the platform
-        npx cap config set ios.minVersion 15.0
-        
-        # Add iOS platform (it will now use the version we just set)
+        # Create a fresh iOS platform
         npx cap add ios
-        
-        # Sync web assets
+        # Manual step to ensure Podfile has correct iOS version
+        if [ -f "ios/App/Podfile" ]; then
+          sed -i.bak "s/platform :ios, '[0-9.]*'/platform :ios, '15.0'/" ios/App/Podfile
+          echo "✅ Podfile updated to iOS 15.0"
+        fi
+        # Sync to copy web assets with the new config
         npx cap sync ios
-        
+
     - name: Install CocoaPods dependencies
       run: |
         cd ios/App
-        pod install
-        
-    - name: Setup iOS code signing
-      env:
-        BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-        P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
-        BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
-        KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-      run: |
-        # Create keychain
-        security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-        security default-keychain -s build.keychain
-        security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-        
-        # Import certificate
-        echo "$BUILD_CERTIFICATE_BASE64" | base64 --decode > certificate.p12
-        security import certificate.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
-        
-        # Import provisioning profile
-        echo "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode > profile.mobileprovision
-        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-        uuid=$(grep -a -A 2 -F "<key>UUID</key>" profile.mobileprovision | grep -o "[-a-zA-Z0-9]\{36\}")
-        cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$uuid.mobileprovision
-        
-        # Configure keychain settings
-        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+        # Ensure CocoaPods uses the latest repo info
+        pod repo update
+        pod install --repo-update
         
     - name: Build iOS IPA
       env:
