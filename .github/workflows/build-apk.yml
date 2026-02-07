@@ -32,33 +32,33 @@ jobs:
             
     - name: Build Next.js app
       run: |
-        # Install dependencies
+        # 1. Ensure a clean, correct build
         npm ci --legacy-peer-deps
-        
-        # Fix baseline-browser-mapping
-        npm install baseline-browser-mapping@latest -D --legacy-peer-deps
-        
-        # Create minimal API routes for build
-        mkdir -p pages/api
-        
-        # Create a simple API route file using echo instead of cat with heredoc
-        echo "import type { NextApiRequest, NextApiResponse } from 'next'
-        export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-          return res.status(200).json({ status: 'ok', message: 'Build placeholder' })
-        }" > pages/api/health.ts
-        
-        # Create next.config.js for static export using echo
-        echo "/** @type {import('next').NextConfig} */
-        const nextConfig = {
-          output: 'export',
-          images: { unoptimized: true },
-          typescript: { ignoreBuildErrors: true },
-          eslint: { ignoreDuringBuilds: true }
-        };
-        module.exports = nextConfig;" > next.config.js
-        
-        # Build the app
         npx next build
+        
+        # 2. Verify the build output exists where Capacitor expects it
+        if [ -f "out/index.html" ]; then
+          echo "✅ Build found in 'out/' directory (Next.js default for 'output: export')"
+        elif [ -f "dist/index.html" ]; then
+          echo "✅ Build found in 'dist/' directory"
+        else
+          echo "❌ ERROR: No index.html found. Listing build directory:"
+          ls -la .next/ 2>/dev/null || ls -la
+          exit 1
+        fi
+
+    - name: Prepare Capacitor Android
+      run: |
+        # 3. Remove existing Android platform to allow clean re-add
+        rm -rf android
+        
+        # 4. Ensure the webDir in capacitor.config.ts points to the correct folder
+        # If your Next.js outputs to 'out', update it. If 'dist', ensure it exists.
+        # Let's check and sync
+        npx cap sync
+        
+        # 5. Explicitly add the Android platform
+        npx cap add android
         
     - name: Verify build output
       run: |
