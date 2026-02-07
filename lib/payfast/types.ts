@@ -21,7 +21,6 @@ export interface TransactionDetails {
   merchant_id: string;       // Missing in your object
   signature: string;         // Missing in your object
   amount: number;
-  item_name: string;
   item_description?: string;
   custom_int1?: number;
   custom_int2?: number;
