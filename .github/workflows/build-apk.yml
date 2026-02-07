@@ -46,9 +46,8 @@ jobs:
         mkdir -p pages/api/auth
         mkdir -p pages/api/verification
         
-        # Create ALL API routes with proper Pages Router syntax
-        # 1. Signup
-        cat > pages/api/signup.ts << 'EOL'
+        # 1. Signup endpoint
+        cat > pages/api/signup.ts << 'EOF'
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -62,12 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       
       return res.status(201).json({
         success: true,
-        message: 'Signup endpoint ready',
-        user: { 
-          id: 'temp-id-' + Date.now(), 
-          email, 
-          name: email.split('@')[0] 
-        }
+        message: 'Signup endpoint ready'
       })
     } catch (error) {
       return res.status(500).json({ error: 'Internal server error' })
@@ -76,10 +70,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   
   return res.status(405).json({ error: 'Method not allowed' })
 }
-EOL
+EOF
 
         # 2. Bookings - arrival instructions (no test data)
-        cat > pages/api/bookings/[id]/arrival-instructions.ts << 'EOL'
+        cat > pages/api/bookings/[id]/arrival-instructions.ts << 'EOF'
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -111,10 +105,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   
   return res.status(405).json({ error: 'Method not allowed' })
 }
-EOL
+EOF
 
         # 3. Bookings - main endpoint (no test data)
-        cat > pages/api/bookings/[id]/index.ts << 'EOL'
+        cat > pages/api/bookings/[id]/index.ts << 'EOF'
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -130,7 +124,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   
   return res.status(405).json({ error: 'Method not allowed' })
 }
-EOL
+EOF
 
         # 4. Create other essential API routes
         for endpoint in "payments/create" "payments/onsite" "payments/validate" "safeword-detections" "verification/store-selfie"; do
@@ -138,14 +132,14 @@ EOL
           mkdir -p "$dir"
           filename=$(basename "$endpoint")
           
-          cat > "pages/api/$endpoint.ts" << EOL
+          cat > "pages/api/$endpoint.ts" << EOF
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'POST') {
     return res.status(200).json({ 
       success: true, 
-      message: '${filename} endpoint ready',
+      message: '\${filename} endpoint ready',
       data: req.body
     })
   }
@@ -153,17 +147,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'GET') {
     return res.status(200).json({ 
       success: true, 
-      message: '${filename} endpoint ready' 
+      message: '\${filename} endpoint ready' 
     })
   }
   
   return res.status(405).json({ error: 'Method not allowed' })
 }
-EOL
+EOF
         done
         
         # 5. Create a catch-all for other API routes
-        cat > pages/api/[...all].ts << 'EOL'
+        cat > pages/api/[...all].ts << 'EOF'
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -178,10 +172,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     note: 'Build-time placeholder'
   })
 }
-EOL
+EOF
         
         # Configure next.config.js
-        cat > next.config.js << 'EOL'
+        cat > next.config.js << 'EOF'
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
@@ -207,7 +201,7 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
-EOL
+EOF
         
         # Hide app/api routes during build
         if [ -d "app/api" ]; then
@@ -256,7 +250,7 @@ EOL
       run: |
         yes | sdkmanager --licenses || true
         
-    - name: Install Android SDK 34 (more stable than 35)
+    - name: Install Android SDK 34
       run: |
         sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" "cmdline-tools;latest"
         
