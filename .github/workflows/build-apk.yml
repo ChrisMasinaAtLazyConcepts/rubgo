@@ -69,7 +69,7 @@ jobs:
       run: |
         # Remove existing android folder for clean setup
         rm -rf android
-        npx cap add android --no-deps
+        npx cap add android  # Remove --no-deps
         npx cap sync android
         
     - name: Update AndroidManifest.xml for proper permissions
