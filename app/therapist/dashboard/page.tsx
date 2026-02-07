@@ -26,7 +26,18 @@ import {
   Navigation, 
   X, 
   Car,
-  ExternalLink
+  ExternalLink,
+  Clock as ClockIcon,
+  CheckCircle,
+  AlertCircle,
+  Camera,
+  ClipboardCheck,
+  Shirt,
+  Scissors,
+  Sparkles,
+  Loader2,
+  Upload,
+  Check
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { TherapistBookingRequest } from "@/components/therapist-booking-request"
@@ -90,6 +101,8 @@ interface BookingDetails {
   totalAmount: number
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+
 export default function TherapistDashboard() {
   const { user } = useAuth()
   const router = useRouter()
@@ -98,10 +111,19 @@ export default function TherapistDashboard() {
   const [showBookingRequest, setShowBookingRequest] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<BookingDetails | null>(null)
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([])
+  const [therapistStatus, setTherapistStatus] = useState<'pending' | 'approved' | 'rejected'>('approved')
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   
-  // New state for start options
   const [showStartOptions, setShowStartOptions] = useState(false)
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null)
+  const [showSessionConfirmation, setShowSessionConfirmation] = useState(false)
+  const [capturedImage, setCapturedImage] = useState<string | null>(null)
+  const [hasAcceptedRules, setHasAcceptedRules] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  
   const [stats, setStats] = useState<Stats>({
     totalEarnings: 0,
     completedSessions: 0,
@@ -115,72 +137,86 @@ export default function TherapistDashboard() {
   const [hasPlayedSound, setHasPlayedSound] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
-  // Mock data - replace with actual API calls
+  // Fetch data from API
   useEffect(() => {
-    const mockTodayBookings: Booking[] = [
-      {
-        id: "1",
-        clientName: "John Smith",
-        clientImage: "/client1.jpg",
-        service: "Deep Tissue Massage",
-        duration: 60,
-        price: 450,
-        date: new Date(Date.now() + 1000 * 60 * 60 * 2),
-        status: 'confirmed',
-        location: "Client's Home - 2.3km away"
-      },
-      {
-        id: "2",
-        clientName: "Sarah Wilson",
-        clientImage: "/client2.jpg",
-        service: "Swedish Massage",
-        duration: 90,
-        price: 600,
-        date: new Date(Date.now() + 1000 * 60 * 60 * 4),
-        status: 'confirmed',
-        location: "My Studio"
+    const fetchDashboardData = async () => {
+      setIsLoading(true)
+      setError(null)
+      
+      try {
+        const token = localStorage.getItem('token')
+        
+        const [todayRes, upcomingRes, statsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/therapist/bookings/today`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }),
+          fetch(`${API_BASE_URL}/therapist/bookings/upcoming`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }),
+          fetch(`${API_BASE_URL}/therapist/stats`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+        ])
+
+        if (!todayRes.ok || !upcomingRes.ok || !statsRes.ok) {
+          throw new Error('Failed to fetch dashboard data')
+        }
+
+        const todayData = await todayRes.json()
+        const upcomingData = await upcomingRes.json()
+        const statsData = await statsRes.json()
+
+        setTodayBookings(todayData.map((booking: any) => ({
+          ...booking,
+          date: new Date(booking.date)
+        })))
+        
+        setUpcomingBookings(upcomingData.map((booking: any) => ({
+          ...booking,
+          date: new Date(booking.date)
+        })))
+        
+        setStats(statsData)
+
+      } catch (err) {
+        console.error('Error fetching data:', err)
+        setError('Failed to load dashboard data. Please try again.')
+      } finally {
+        setIsLoading(false)
       }
-    ]
+    }
 
-    const mockUpcomingBookings: Booking[] = [
-      {
-        id: "3",
-        clientName: "Mike Johnson",
-        clientImage: "/client3.jpg",
-        service: "Sports Massage",
-        duration: 60,
-        price: 500,
-        date: new Date(Date.now() + 1000 * 60 * 60 * 24),
-        status: 'confirmed',
-        location: "Client's Home - 5.1km away"
-      },
-      {
-        id: "4",
-        clientName: "Emma Davis",
-        clientImage: "/client4.jpg",
-        service: "Aromatherapy",
-        duration: 90,
-        price: 650,
-        date: new Date(Date.now() + 1000 * 60 * 60 * 48),
-        status: 'pending',
-        location: "My Studio"
+    const fetchTherapistStatus = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        const response = await fetch(`${API_BASE_URL}/therapist/status`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        if (response.ok) {
+          const status = await response.json()
+          setTherapistStatus(status)
+        }
+      } catch (err) {
+        console.error('Error fetching therapist status:', err)
       }
-    ]
+    }
 
-    setTodayBookings(mockTodayBookings)
-    setUpcomingBookings(mockUpcomingBookings)
-    setStats({
-      totalEarnings: 12500,
-      completedSessions: 42,
-      averageRating: 4.8,
-      responseRate: 95,
-      monthlyGrowth: 12,
-      nextPayout: 3200
-    })
-  }, [])
+    fetchDashboardData()
+    fetchTherapistStatus()
 
-  // Simulate incoming booking notification
-  useEffect(() => {
     const simulateIncomingBooking = () => {
       const newNotification: NotificationData = {
         id: Date.now().toString(),
@@ -195,28 +231,55 @@ export default function TherapistDashboard() {
       setShowNotification(true)
       playNotificationSound()
       
-      // Auto-hide notification after 5 seconds
       setTimeout(() => {
         setShowNotification(false)
       }, 5000)
     }
 
-    // Simulate notification after 3 seconds of page load
     const timer = setTimeout(simulateIncomingBooking, 3000)
     
     return () => clearTimeout(timer)
   }, [])
 
+  // Camera setup for selfie capture
+  useEffect(() => {
+    if (showSessionConfirmation && videoRef.current) {
+      const startCamera = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+              facingMode: 'user',
+              width: { ideal: 640 },
+              height: { ideal: 480 }
+            } 
+          })
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream
+          }
+        } catch (err) {
+          console.error('Error accessing camera:', err)
+        }
+      }
+      startCamera()
+      
+      return () => {
+        if (videoRef.current?.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream
+          stream.getTracks().forEach(track => track.stop())
+        }
+      }
+    }
+  }, [showSessionConfirmation])
+
   const playNotificationSound = () => {
     if (!audioRef.current) {
       audioRef.current = new Audio()
-      audioRef.current.src = '/assets/new.mp3' // Same sound as en-route page
+      audioRef.current.src = '/assets/new.mp3'
       audioRef.current.volume = 0.4
     }
     
     if (!hasPlayedSound) {
       audioRef.current.play().catch(() => {
-        // Fallback: Create a simple tone using Web Audio API
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
         const oscillator = audioContext.createOscillator()
         const gainNode = audioContext.createGain()
@@ -238,69 +301,190 @@ export default function TherapistDashboard() {
     }
   }
 
-const handleBookingAction = (bookingId: string, action: 'accept' | 'decline' | 'start' | 'complete') => {
-  console.log(`Booking ${bookingId}: ${action}`)
-  
-  if (action === 'start') {
-    setSelectedBookingId(bookingId)
-    setShowStartOptions(true)
+  const handleBookingAction = async (bookingId: string, action: 'accept' | 'decline' | 'start' | 'complete') => {
+    try {
+      const token = localStorage.getItem('token')
+      
+      const response = await fetch(`${API_BASE_URL}/therapist/bookings/${bookingId}/${action}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${action} booking`)
+      }
+
+      const refreshBookings = async () => {
+        const token = localStorage.getItem('token')
+        const [todayRes, upcomingRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/therapist/bookings/today`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }),
+          fetch(`${API_BASE_URL}/therapist/bookings/upcoming`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+        ])
+
+        if (todayRes.ok && upcomingRes.ok) {
+          const todayData = await todayRes.json()
+          const upcomingData = await upcomingRes.json()
+          
+          setTodayBookings(todayData.map((booking: any) => ({
+            ...booking,
+            date: new Date(booking.date)
+          })))
+          
+          setUpcomingBookings(upcomingData.map((booking: any) => ({
+            ...booking,
+            date: new Date(booking.date)
+          })))
+        }
+      }
+
+      refreshBookings()
+
+    } catch (err) {
+      console.error('Error updating booking:', err)
+      alert(`Failed to ${action} booking. Please try again.`)
+    }
   }
-}
 
-
-// Handle drive option - opens navigation mode
-const handleDrive = () => {
-  setShowStartOptions(false)
-  // Find the booking details
-  const booking = todayBookings.find(b => b.id === selectedBookingId)
-  if (booking) {
-    // Store booking info for navigation page
-    sessionStorage.setItem('currentSession', JSON.stringify({
-      ...booking,
-      status: 'in-progress',
-      startTime: new Date(),
-      estimatedArrival: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes from now
-    }))
-    router.push('/therapist/navigation')
+  const captureSelfie = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current
+      const context = canvas.getContext('2d')
+      
+      if (context) {
+        canvas.width = videoRef.current.videoWidth
+        canvas.height = videoRef.current.videoHeight
+        context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height)
+        
+        const imageDataUrl = canvas.toDataURL('image/png')
+        setCapturedImage(imageDataUrl)
+        
+        const stream = videoRef.current.srcObject as MediaStream
+        stream.getTracks().forEach(track => track.stop())
+      }
+    }
   }
-}
 
-// Handle request option - opens ride-hailing apps with location data
-const handleRequestRide = () => {
-  setShowStartOptions(false)
-  const booking = todayBookings.find(b => b.id === selectedBookingId)
-  if (booking) {
-    // Extract and encode location data
-    const destination = encodeURIComponent(booking.location)
-    
-    // Get current location coordinates (you might want to store these)
-    const currentLocation = {
-      lat: -26.1076, // Example: Johannesburg coordinates
-      lng: 28.0567
+  const retakeSelfie = () => {
+    setCapturedImage(null)
+    if (videoRef.current) {
+      navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'user',
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        } 
+      }).then(stream => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+        }
+      })
+    }
+  }
+
+  const uploadSelfie = async () => {
+    if (!capturedImage) return
+
+    setIsUploading(true)
+    try {
+      const token = localStorage.getItem('token')
+      
+      const response = await fetch(capturedImage)
+      const blob = await response.blob()
+      
+      const formData = new FormData()
+      formData.append('selfie', blob, 'selfie.png')
+      formData.append('bookingId', selectedBookingId || '')
+      
+      const uploadResponse = await fetch(`${API_BASE_URL}/therapist/selfie`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      })
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload selfie')
+      }
+
+      if (selectedBookingId) {
+        await handleBookingAction(selectedBookingId, 'start')
+      }
+      
+      setShowSessionConfirmation(false)
+      setCapturedImage(null)
+      setHasAcceptedRules(false)
+      
+      const booking = todayBookings.find(b => b.id === selectedBookingId)
+      if (booking) {
+        sessionStorage.setItem('currentSession', JSON.stringify({
+          ...booking,
+          status: 'in-progress',
+          startTime: new Date(),
+          estimatedArrival: new Date(Date.now() + 30 * 60 * 1000)
+        }))
+        router.push('/therapist/navigation')
+      }
+
+    } catch (err) {
+      console.error('Error uploading selfie:', err)
+      alert('Failed to upload selfie. Please try again.')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const confirmSessionStart = () => {
+    if (!hasAcceptedRules) {
+      alert('Please accept the dress code rules to continue')
+      return
     }
     
-    // Uber Deep Link with coordinates and address
-    const uberUrl = `uber://?action=setPickup&pickup[latitude]=${currentLocation.lat}&pickup[longitude]=${currentLocation.lng}&dropoff[formatted_address]=${destination}`
+    if (!capturedImage) {
+      alert('Please take a half-body selfie to continue')
+      return
+    }
     
-    // Alternative Uber URL with just address
-    const uberUrlAlt = `uber://?action=setPickup&pickup=my_location&dropoff[formatted_address]=${destination}`
-    
-    // Bolt Deep Link
-    const boltUrl = `bolt://pickup?destination=${destination}`
-    
-    // Try to open Uber first
-    window.location.href = uberUrl
-    
-    // Fallback mechanism
-    setTimeout(() => {
-      if (!document.hidden) {
-        // If Uber app didn't open, try web version
-        const uberWebUrl = `https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=${destination}`
-        window.open(uberWebUrl, '_blank')
-      }
-    }, 500)
+    uploadSelfie()
   }
-}
+
+  const handleStartSession = (bookingId: string) => {
+    setSelectedBookingId(bookingId)
+    setShowSessionConfirmation(true)
+  }
+
+  const handleRequestRide = () => {
+    setShowStartOptions(false)
+    const booking = todayBookings.find(b => b.id === selectedBookingId)
+    if (booking) {
+      const destination = encodeURIComponent(booking.location)
+      const currentLocation = { lat: -26.1076, lng: 28.0567 }
+      
+      const uberUrl = `uber://?action=setPickup&pickup[latitude]=${currentLocation.lat}&pickup[longitude]=${currentLocation.lng}&dropoff[formatted_address]=${destination}`
+      
+      window.location.href = uberUrl
+      
+      setTimeout(() => {
+        if (!document.hidden) {
+          const uberWebUrl = `https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=${destination}`
+          window.open(uberWebUrl, '_blank')
+        }
+      }, 500)
+    }
+  }
 
   const handleViewBooking = (bookingId: string) => {
     router.push(`/therapist/booking/${bookingId}`)
@@ -310,10 +494,8 @@ const handleRequestRide = () => {
     router.push('/therapist/inbox')
   }
 
-  // Update the notification click handler
   const handleNotificationClick = () => {
     if (currentNotification?.bookingId) {
-      // Fetch booking details based on bookingId
       const mockBookingDetails: BookingDetails = {
         id: currentNotification.bookingId,
         client: {
@@ -329,7 +511,7 @@ const handleRequestRide = () => {
         service: "Deep Tissue Massage",
         duration: 60,
         price: 450,
-        date: new Date(Date.now() + 1000 * 60 * 60 * 24), // Tomorrow
+        date: new Date(Date.now() + 1000 * 60 * 60 * 24),
         location: "Client's Home",
         address: "123 Main Street, Johannesburg, 2000",
         coordinates: { lat: -26.1076, lng: 28.0567 },
@@ -376,9 +558,210 @@ const handleRequestRide = () => {
     return "Good evening"
   }
 
+  // Session Confirmation Modal Component
+  const SessionConfirmationModal = () => {
+    const dressCodeRules = [
+      { id: 1, rule: 'Nails must be clean, trimmed, and free of polish', icon: <Scissors className="w-4 h-4" /> },
+      { id: 2, rule: 'Clean, professional uniform or scrubs required', icon: <Shirt className="w-4 h-4" /> },
+      { id: 3, rule: 'Fresh, clean towels must be brought to every session', icon: <Sparkles className="w-4 h-4" /> },
+      { id: 4, rule: 'Hair must be tied back if longer than shoulder length', icon: <Scissors className="w-4 h-4" /> },
+      { id: 5, rule: 'No strong perfumes or scents allowed', icon: <AlertCircle className="w-4 h-4" /> },
+      { id: 6, rule: 'Clean, closed-toe shoes required', icon: <CheckCircle className="w-4 h-4" /> }
+    ]
+
+    return (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-gradient-to-br from-gray-900 to-slate-800 rounded-3xl max-w-2xl w-full overflow-hidden border border-slate-700 shadow-2xl"
+        >
+          <div className="bg-gradient-to-r from-blue-900 to-slate-800 p-6 text-center border-b border-slate-700">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                <ClipboardCheck className="w-6 h-6 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-white">Session Confirmation</h2>
+            </div>
+            <p className="text-slate-300">Please confirm compliance and take a half-body selfie</p>
+          </div>
+
+          <div className="p-6 max-h-[80vh] overflow-y-auto">
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <Shirt className="w-5 h-5 text-blue-400" />
+                <h3 className="text-lg font-semibold text-white">Dress Code & Professional Standards</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+                {dressCodeRules.map((rule) => (
+                  <div key={rule.id} className="flex items-start gap-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700">
+                    <div className="w-8 h-8 bg-blue-900/30 rounded-lg flex items-center justify-center text-blue-400 mt-0.5">
+                      {rule.icon}
+                    </div>
+                    <span className="text-sm text-slate-300">{rule.rule}</span>
+                  </div>
+                ))}
+              </div>
+              
+              <label className="flex items-start gap-3 p-4 bg-slate-800/30 rounded-xl border border-slate-700 cursor-pointer hover:bg-slate-800/50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={hasAcceptedRules}
+                  onChange={(e) => setHasAcceptedRules(e.target.checked)}
+                  className="mt-1 rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
+                />
+                <div>
+                  <p className="text-sm font-medium text-white">
+                    I confirm that I comply with all dress code and professional standards
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Violation of these standards may result in suspension or termination
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <Camera className="w-5 h-5 text-blue-400" />
+                <h3 className="text-lg font-semibold text-white">Half-Body Selfie Verification</h3>
+              </div>
+              
+              <p className="text-sm text-slate-400 mb-4">
+                Take a clear photo showing yourself from waist up with your uniform visible
+              </p>
+              
+              <div className="bg-slate-900 rounded-xl overflow-hidden border border-slate-700">
+                {!capturedImage ? (
+                  <div className="relative">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      className="w-full h-64 object-cover"
+                    />
+                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
+                      <button
+                        onClick={captureSelfie}
+                        className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform"
+                      >
+                        <Camera className="w-8 h-8 text-slate-900" />
+                      </button>
+                    </div>
+                    <canvas ref={canvasRef} className="hidden" />
+                  </div>
+                ) : (
+                  <div className="p-4">
+                    <div className="relative w-48 h-48 mx-auto mb-4 rounded-xl overflow-hidden border-4 border-blue-500">
+                      <img 
+                        src={capturedImage} 
+                        alt="Captured selfie"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex justify-center gap-3">
+                      <button
+                        onClick={retakeSelfie}
+                        className="px-4 py-2 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-800 transition-colors"
+                      >
+                        Retake
+                      </button>
+                      <button
+                        onClick={() => setCapturedImage(null)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Looks Good
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowSessionConfirmation(false)
+                  setCapturedImage(null)
+                  setHasAcceptedRules(false)
+                }}
+                className="flex-1 border border-slate-600 text-slate-300 py-3 rounded-xl font-semibold hover:bg-slate-800 transition-colors"
+                disabled={isUploading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmSessionStart}
+                disabled={!hasAcceptedRules || !capturedImage || isUploading}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Starting Session...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-5 h-5" />
+                    Start Session
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    )
+  }
+
+  // Loading State
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#1a2a3a] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-[#71CBD1] animate-spin mx-auto mb-4" />
+          <p className="text-white text-lg">Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error State
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#1a2a3a] flex items-center justify-center p-4">
+        <div className="bg-[#2d3e50] rounded-2xl p-8 max-w-md text-center">
+          <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-white mb-2">Error Loading Data</h2>
+          <p className="text-gray-300 mb-6">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-[#71CBD1] text-[#1a2a3a] px-6 py-3 rounded-xl font-semibold hover:bg-[#5bb5c1] transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Show pending approval screen if status is pending
+  if (therapistStatus === 'pending') {
+    return <PendingApprovalScreen />
+  }
+
+  // Show rejected screen if status is rejected
+  if (therapistStatus === 'rejected') {
+    return <RejectedScreen />
+  }
+
   return (
     <div className="min-h-screen bg-[#1a2a3a] text-white pb-20">
-      {/* Push Notification */}
+      <AnimatePresence>
+        {showSessionConfirmation && <SessionConfirmationModal />}
+      </AnimatePresence>
+      
       <AnimatePresence>
         {showNotification && currentNotification && (
           <motion.div
@@ -421,70 +804,73 @@ const handleRequestRide = () => {
           </motion.div>
         )}
       </AnimatePresence>
-	  
-	   {/* ADD THIS START OPTIONS MODAL - IT'S MISSING */}
-    {showStartOptions && (
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center p-4">
-        <motion.div
-          initial={{ opacity: 0, y: 100 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-gray-200"
-        >
-          <div className="p-6">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Navigation className="w-8 h-8 text-green-600" />
+      
+      {showStartOptions && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-gray-200"
+          >
+            <div className="p-6">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Navigation className="w-8 h-8 text-green-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Start Session</h3>
+                <p className="text-gray-600">How would you like to get to your client?</p>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Start Session</h3>
-              <p className="text-gray-600">How would you like to get to your client?</p>
-            </div>
 
-            <div className="space-y-3">
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setShowStartOptions(false)
+                    if (selectedBookingId) {
+                      handleStartSession(selectedBookingId)
+                    }
+                  }}
+                  className="w-full p-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl flex items-center justify-between hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                      <Car className="w-5 h-5" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-semibold">Start Session</div>
+                      <div className="text-sm text-white/80">Confirm dress code & take selfie</div>
+                    </div>
+                  </div>
+                  <Check className="w-5 h-5" />
+                </button>
+
+                <button
+                  onClick={handleRequestRide}
+                  className="w-full p-4 bg-gradient-to-r from-blue-500 to-sky-600 text-white rounded-2xl flex items-center justify-between hover:from-blue-600 hover:to-sky-700 transition-all duration-200 shadow-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-semibold">Request Ride</div>
+                      <div className="text-sm text-white/80">Uber, Bolt, or similar</div>
+                    </div>
+                  </div>
+                  <ExternalLink className="w-5 h-5" />
+                </button>
+              </div>
+
               <button
-                onClick={handleDrive}
-                className="w-full p-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl flex items-center justify-between hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg"
+                onClick={() => setShowStartOptions(false)}
+                className="w-full mt-4 p-3 text-gray-600 hover:text-gray-800 transition-colors"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                    <Car className="w-5 h-5" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-semibold">Drive Yourself</div>
-                    <div className="text-sm text-white/80">Use built-in navigation</div>
-                  </div>
-                </div>
-                <MapPin className="w-5 h-5" />
-              </button>
-
-              <button
-                onClick={handleRequestRide}
-                className="w-full p-4 bg-gradient-to-r from-blue-500 to-sky-600 text-white rounded-2xl flex items-center justify-between hover:from-blue-600 hover:to-sky-700 transition-all duration-200 shadow-lg"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                    <Users className="w-5 h-5" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-semibold">Request Ride</div>
-                    <div className="text-sm text-white/80">Uber, Bolt, or similar</div>
-                  </div>
-                </div>
-                <ExternalLink className="w-5 h-5" />
+                Cancel
               </button>
             </div>
+          </motion.div>
+        </div>
+      )}
 
-            <button
-              onClick={() => setShowStartOptions(false)}
-              className="w-full mt-4 p-3 text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </motion.div>
-      </div>
-    )}
-
-      {/* Header */}
       <div className="bg-[#2d3e50] border-b border-[#3a506b] p-4">
         <div className="flex justify-between items-center mb-2">
           <div>
@@ -510,7 +896,6 @@ const handleRequestRide = () => {
           </div>
         </div>
 
-        {/* Quick Stats Overview */}
         <div className="grid grid-cols-4 gap-2 mt-4">
           <div className="text-center">
             <div className="text-lg font-bold text-white">{todayBookings.length}</div>
@@ -531,7 +916,6 @@ const handleRequestRide = () => {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
       <div className="bg-[#2d3e50] border-b border-[#3a506b]">
         <div className="flex p-4 gap-1">
           {[
@@ -559,11 +943,9 @@ const handleRequestRide = () => {
         </div>
       </div>
 
-      {/* Tab Content */}
       <div className="p-4">
         {activeTab === 'overview' && (
           <div className="space-y-4">
-            {/* Today's Priority */}
             <div className="bg-[#2d3e50] rounded-xl p-4 border border-[#3a506b]">
               <div className="flex items-center gap-2 mb-3">
                 <Zap className="w-5 h-5 text-yellow-400" />
@@ -609,7 +991,10 @@ const handleRequestRide = () => {
                           Message
                         </button>
                         <button
-                          onClick={() => handleBookingAction(booking.id, 'start')}
+                          onClick={() => {
+                            setSelectedBookingId(booking.id)
+                            setShowStartOptions(true)
+                          }}
                           className="flex-1 bg-[#71CBD1] text-[#1a2a3a] py-2 rounded-lg text-sm font-semibold hover:bg-[#5bb5c1] transition-colors"
                         >
                           Start Session
@@ -632,7 +1017,6 @@ const handleRequestRide = () => {
               )}
             </div>
 
-            {/* Quick Actions */}
             <div className="bg-[#2d3e50] rounded-xl p-4 border border-[#3a506b]">
               <h3 className="font-semibold text-white mb-4">Quick Actions</h3>
               <div className="grid grid-cols-2 gap-3">
@@ -671,7 +1055,6 @@ const handleRequestRide = () => {
               </div>
             </div>
 
-            {/* Performance Metrics */}
             <div className="bg-[#2d3e50] rounded-xl p-4 border border-[#3a506b]">
               <h3 className="font-semibold text-white mb-4">Performance</h3>
               <div className="space-y-3">
@@ -694,7 +1077,6 @@ const handleRequestRide = () => {
 
         {activeTab === 'bookings' && (
           <div className="space-y-4">
-            {/* Upcoming Bookings */}
             <div className="bg-[#2d3e50] rounded-xl p-4 border border-[#3a506b]">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-white">Upcoming Bookings</h3>
@@ -770,7 +1152,6 @@ const handleRequestRide = () => {
 
         {activeTab === 'earnings' && (
           <div className="space-y-4">
-            {/* Earnings Overview */}
             <div className="bg-[#2d3e50] rounded-xl p-4 border border-[#3a506b]">
               <h3 className="font-semibold text-white mb-4">Earnings Overview</h3>
               <div className="space-y-4">
@@ -811,7 +1192,6 @@ const handleRequestRide = () => {
 
         {activeTab === 'clients' && (
           <div className="space-y-4">
-            {/* Client Management */}
             <div className="bg-[#2d3e50] rounded-xl p-4 border border-[#3a506b]">
               <h3 className="font-semibold text-white mb-4">Client Management</h3>
               <div className="space-y-3">
@@ -854,7 +1234,6 @@ const handleRequestRide = () => {
         )}
       </div>
 
-      {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-[#2d3e50] border-t border-[#3a506b] p-3">
         <div className="flex justify-around items-center">
           {[
@@ -883,19 +1262,16 @@ const handleRequestRide = () => {
         </div>
       </nav>
 
-      {/* Therapist Booking Request Component */}
       <TherapistBookingRequest
         isOpen={showBookingRequest}
         onClose={() => setShowBookingRequest(false)}
         onAccept={(bookingId) => {
           console.log("Accepted booking:", bookingId)
           setShowBookingRequest(false)
-          // Handle booking acceptance logic
         }}
         onDecline={(bookingId) => {
           console.log("Declined booking:", bookingId)
           setShowBookingRequest(false)
-          // Handle booking decline logic
         }}
         onMessage={(clientId) => {
           router.push(`/therapist/inbox?client=${clientId}`)
@@ -905,6 +1281,144 @@ const handleRequestRide = () => {
         }}
         booking={selectedBooking}
       />
+    </div>
+  )
+}
+
+function PendingApprovalScreen() {
+  const router = useRouter()
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 text-center"
+      >
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          className="w-20 h-20 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6"
+        >
+          <ClockIcon className="w-10 h-10 text-blue-600" />
+        </motion.div>
+
+        <h1 className="text-2xl font-bold text-gray-800 mb-4">
+          Registration Under Review
+        </h1>
+        
+        <p className="text-gray-600 mb-6">
+          Thank you for applying to become a therapist on our platform! Your application is currently being reviewed by our team.
+        </p>
+
+        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+            <div className="text-left">
+              <h3 className="font-semibold text-yellow-800 text-sm">Pending Approval</h3>
+              <p className="text-yellow-700 text-xs">
+                This process typically takes up to 24 hours
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-50 rounded-2xl p-4 mb-6">
+          <h3 className="font-semibold text-gray-800 mb-3 text-sm">What happens next?</h3>
+          <div className="space-y-3 text-left">
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <CheckCircle className="w-3 h-3 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-800">Background Check</p>
+                <p className="text-xs text-gray-600">Verifying your credentials and certifications</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <CheckCircle className="w-3 h-3 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-800">Profile Review</p>
+                <p className="text-xs text-gray-600">Checking your profile completeness and quality</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <CheckCircle className="w-3 h-3 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-800">Final Approval</p>
+                <p className="text-xs text-gray-600">Completing the verification process</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="text-center">
+          <p className="text-sm text-gray-600 mb-4">
+            Have questions about your application?
+          </p>
+          <button
+            onClick={() => router.push('/support')}
+            className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-lg"
+          >
+            Contact Support
+          </button>
+        </div>
+
+        <p className="text-xs text-gray-500 mt-4">
+          You'll receive an email notification once your application is approved
+        </p>
+      </motion.div>
+    </div>
+  )
+}
+
+function RejectedScreen() {
+  const router = useRouter()
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 text-center"
+      >
+        <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+          <AlertCircle className="w-10 h-10 text-red-600" />
+        </div>
+
+        <h1 className="text-2xl font-bold text-gray-800 mb-4">
+          Application Not Approved
+        </h1>
+        
+        <p className="text-gray-600 mb-6">
+          We're sorry, but your application to become a therapist was not approved at this time.
+        </p>
+
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
+          <p className="text-red-700 text-sm">
+            You can reapply after addressing the issues mentioned in the email we sent you.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <button
+            onClick={() => router.push('/support')}
+            className="w-full bg-red-600 text-white py-3 rounded-xl font-semibold hover:bg-red-700 transition-colors shadow-lg"
+          >
+            Contact Support for Details
+          </button>
+          <button
+            onClick={() => router.push('/')}
+            className="w-full border border-gray-300 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+          >
+            Return to Home
+          </button>
+        </div>
+      </motion.div>
     </div>
   )
 }

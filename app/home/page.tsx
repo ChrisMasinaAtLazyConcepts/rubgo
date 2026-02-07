@@ -1,4 +1,3 @@
-// app/home/page.tsx
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -6,13 +5,15 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { BottomNav } from "@/components/bottom-nav"
 import { Button } from "@/components/ui/button"
-import { Search, Bell, MapPin, Navigation, Users, Plus, X, Clock, User, Users as UsersIcon, Heart, Users as Family, Briefcase, MessageCircle, ShoppingCart } from "lucide-react"
+import { Search, Bell, MapPin, Navigation, Plus, X, Clock, User, Users as UsersIcon, Heart, Users as Family, Briefcase, MessageCircle, ShoppingCart } from "lucide-react"
 import { FilterOptions  } from "@/lib/types"
 import { therapists, type Therapist, type MassageService } from "@/lib/massage-data"
 import { MobileHeader } from "@/components/mobile-header"
 import { BookingLoading } from "@/components/booking-loading"
 import { BookingRequest } from "@/components/booking-request"
 import dynamic from 'next/dynamic'
+import { NoTherapistsAvailable } from "@/components/no-therapists-available"
+import { AreaNotCovered } from "@/components/area-not-covered"
 
 // Dynamically import GoogleMap with no SSR
 const GoogleMap = dynamic(() => import('@/components/google-map'), {
@@ -27,14 +28,58 @@ const GoogleMap = dynamic(() => import('@/components/google-map'), {
   )
 })
 
+// Mock function to check if area is covered
+const checkIfAreaIsCovered = (location: { lat: number; lng: number }) => {
+  // In production, this would be an API call
+  const coveredAreas = [
+    { lat: -26.1076, lng: 28.0567, radius: 50 }, // Johannesburg
+    { lat: -33.9249, lng: 18.4241, radius: 50 }, // Cape Town
+    { lat: -29.8587, lng: 31.0218, radius: 40 }, // Durban
+  ]
+  
+  // Check if location is within any covered area
+  for (const area of coveredAreas) {
+    const distance = getDistanceFromLatLonInKm(
+      location.lat, 
+      location.lng, 
+      area.lat, 
+      area.lng
+    )
+    if (distance <= area.radius) {
+      return true
+    }
+  }
+  return false
+}
+
+// Helper function to calculate distance between coordinates
+function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371 // Radius of the earth in km
+  const dLat = deg2rad(lat2 - lat1)
+  const dLon = deg2rad(lon2 - lon1)
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+  const distance = R * c // Distance in km
+  return distance
+}
+
+function deg2rad(deg: number) {
+  return deg * (Math.PI/180)
+}
+
 export default function HomePage() {
   const { user } = useAuth()
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedService, setSelectedService] = useState<MassageService | null>(null)
-  const [userLocation, setUserLocation] = useState({ lat: -26.1076, lng: 28.0567 })
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [selectedTherapist, setSelectedTherapist] = useState<Therapist | null>(null)
   const [showBookingRequest, setShowBookingRequest] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [areaStatus, setAreaStatus] = useState<'covered' | 'not-covered' | 'loading'>('loading')
   
   // Group Booking States
   const [showGroupMenu, setShowGroupMenu] = useState(false)
@@ -129,19 +174,37 @@ export default function HomePage() {
 
   // Get user location
   useEffect(() => {
+    setIsLoading(true)
+    
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setUserLocation({
+          const location = {
             lat: position.coords.latitude,
             lng: position.coords.longitude
-          })
+          }
+          setUserLocation(location)
+          
+          // Check if area is covered
+          const isCovered = checkIfAreaIsCovered(location)
+          setAreaStatus(isCovered ? 'covered' : 'not-covered')
+          setIsLoading(false)
         },
         (error) => {
           console.log("Geolocation error:", error)
-          setUserLocation({ lat: -26.1076, lng: 28.0567 })
+          // Default to Johannesburg if geolocation fails
+          const defaultLocation = { lat: -26.1076, lng: 28.0567 }
+          setUserLocation(defaultLocation)
+          setAreaStatus('covered') // Default area is covered
+          setIsLoading(false)
         }
       )
+    } else {
+      // Browser doesn't support geolocation
+      const defaultLocation = { lat: -26.1076, lng: 28.0567 }
+      setUserLocation(defaultLocation)
+      setAreaStatus('covered')
+      setIsLoading(false)
     }
   }, [])
 
@@ -178,6 +241,9 @@ export default function HomePage() {
   }, [isSearchingTherapists, requiredTherapists])
 
   const filteredTherapists = useMemo(() => {
+    if (!userLocation) return []
+    
+    // Filter therapists by distance from user location (within 50km)
     return therapists.filter((therapist) => {
       const matchesSearch =
         therapist.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -200,10 +266,21 @@ export default function HomePage() {
 
       const matchesAvailability = !filters.availableNow || therapist.availability
 
+      // Calculate distance from user
+      const distance = getDistanceFromLatLonInKm(
+        userLocation.lat,
+        userLocation.lng,
+        therapist.location.lat,
+        therapist.location.lng
+      )
+      
+      const withinRange = distance <= 50 // 50km radius
+
       return matchesSearch && matchesService && matchesPrice && 
-             matchesRating && matchesGender && matchesAvailability
+             matchesRating && matchesGender && matchesAvailability &&
+             withinRange
     })
-  }, [searchQuery, filters])
+  }, [searchQuery, filters, userLocation])
 
   // Calculate pricing based on group booking options
   const calculateGroupPricing = () => {
@@ -394,6 +471,68 @@ export default function HomePage() {
     total + (item.type === 'group' ? (item.participants || 1) : 1), 0
   )
 
+  // Handle notify me for no therapists
+  const handleNotifyMe = () => {
+    console.log("User wants to be notified when therapists are available")
+    // In production, this would call an API to add user to notification list
+    alert("You'll be notified when therapists become available in your area!")
+  }
+
+  // Handle area subscription
+  const handleAreaSubscribe = () => {
+    console.log("User subscribed to area launch notifications")
+    // In production, this would call an API
+    alert("Thank you! We'll notify you when we launch in your area.")
+  }
+
+  // Handle check other areas
+  const handleCheckOtherAreas = () => {
+    router.push('/areas')
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Checking service availability in your area...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show "Area Not Covered" component
+  //if (areaStatus === 'not-covered' && filteredTherapists.length === 0) {
+  //  return (
+  //    <>
+  //      <MobileHeader title="Service Area" />
+  //      <AreaNotCovered 
+  //        onSubscribe={handleAreaSubscribe}
+  //        onCheckOtherAreas={handleCheckOtherAreas}
+  //        userLocation="Your Location"
+  //      />
+  //      <BottomNav />
+  //    </>
+  //  )
+  //}
+
+  // Show "No Therapists Available" component
+  if (areaStatus === 'covered' && filteredTherapists.length === 0) {
+    return (
+      <>
+        <MobileHeader title="No Therapists Available" />
+        <NoTherapistsAvailable 
+          onNotifyMe={handleNotifyMe}
+          estimatedWaitTime="1-2 hours"
+          currentLocation="your area"
+        />
+        <BottomNav />
+      </>
+    )
+  }
+
+  // Normal home page with therapists available
   return (
     <div className="min-h-screen bg-background pb-20">
       <MobileHeader title="Find Therapists" />
@@ -402,7 +541,7 @@ export default function HomePage() {
         {/* Map Section */}
         <div className="flex-1 relative">
           <GoogleMap 
-            center={userLocation}
+            center={userLocation || { lat: -26.1076, lng: 28.0567 }}
             zoom={13}
             therapists={filteredTherapists}
             className="w-full h-full"
@@ -431,50 +570,101 @@ export default function HomePage() {
           {/* Group Booking FAB - Positioned below cart FAB */}
           <button
             onClick={handleGroupBookingClick}
-            className="absolute top-20 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 z-30 hover:scale-105 active:scale-95 border-2 border-white"
+            className="absolute top-20 right-4 w-14 h-14 bg-[#71CBD1] hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 z-30 hover:scale-105 active:scale-95 border-2 border-white"
           >
-            <Plus className="w-6 h-6" />
+            <Users className="w-6 h-6 text-white" />
           </button>
         </div>
 
         {/* Therapists List */}
         <div className="h-48 bg-white border-t border-gray-200">
           <div className="p-4">
-            <h3 className="font-semibold text-gray-900 mb-3">Available Therapists Nearby</h3>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-semibold text-gray-900">Available Therapists Nearby</h3>
+              <span className="text-sm text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                {filteredTherapists.length} available
+              </span>
+            </div>
             <div className="flex gap-3 overflow-x-auto pb-2">
-              {therapists.map(therapist => (
+              {filteredTherapists.map(therapist => (
                 <div 
                   key={therapist.id}
-                  className="flex-shrink-0 w-64 bg-gray-50 rounded-lg p-3 border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
+                  className="flex-shrink-0 w-72 bg-white rounded-xl p-4 border border-gray-200 cursor-pointer hover:shadow-lg transition-all duration-300 hover:border-green-200"
                   onClick={() => handleTherapistClick(therapist, therapist.services?.[0] || null)}
                 >
-                  <div className="flex justify-between items-start">
+                  {/* Header Section */}
+                  <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-3">
                       <img
-                        src={therapist.image}
+                        src={therapist.image || "/default-therapist.jpg"}
                         alt={therapist.name}
-                        className="w-10 h-10 rounded-full object-cover"
+                        className="w-12 h-12 rounded-full object-cover border-2 border-green-200"
                       />
-                      <div>
-                        <h4 className="font-medium text-sm text-gray-900">{therapist.name}</h4>
-                        <p className="text-xs text-gray-600">{therapist.specialty}</p>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-semibold text-sm text-gray-900 truncate">{therapist.name}</h4>
+                        <p className="text-xs text-gray-600 truncate">{therapist.specialty}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-green-600">R{therapist.price}</p>
-                      <p className="text-xs text-gray-600">{therapist.distance}km</p>
+                      <p className="font-bold text-green-600 text-sm">R{therapist.price}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{therapist.distance}km away</p>
                     </div>
                   </div>
-                  <div className="flex items-center mt-2">
-                    <div className="flex text-yellow-400">
+
+                  {/* Rating Section */}
+                  <div className="flex items-center mb-3">
+                    <div className="flex text-yellow-400 text-sm">
                       {"★".repeat(Math.floor(therapist.rating || 0))}
                       <span className="text-gray-300">
                         {"★".repeat(5 - Math.floor(therapist.rating || 0))}
                       </span>
                     </div>
-                    <span className="text-xs text-gray-600 ml-1">
-                      {therapist.rating || "No ratings"}
+                    <span className="text-xs text-gray-600 ml-2">
+                      {therapist.rating ? `(${therapist.reviews || 0})` : "No ratings"}
                     </span>
+                  </div>
+
+                  {/* Languages Section */}
+                  {therapist.languages && therapist.languages.length > 0 && (
+                    <div className="mb-3">
+                      <div className="flex items-center gap-1 mb-2">
+                        <svg className="w-3 h-3 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M7 2a1 1 0 011 1v1h3a1 1 0 110 2H9.578a18.87 18.87 0 01-1.724 4.78c.29.398.559.813.806 1.243a1 1 0 11-1.72.974 14.93 14.93 0 01-.806-1.243 18.87 18.87 0 01-1.724-4.78H4a1 1 0 110-2h3V3a1 1 0 011-1zm-4 8a1 1 0 011 1v.041a14.87 14.87 0 01-1.299 2.583A1 1 0 01.5 13.5a1 1 0 01.701-.876A12.87 12.87 0 002 11.041V11a1 1 0 011-1zm12 0a1 1 0 011 1v.041a14.87 14.87 0 01-1.299 2.583A1 1 0 0116.5 13.5a1 1 0 01.701-.876A12.87 12.87 0 0018 11.041V11a1 1 0 011-1z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-xs font-medium text-gray-700">Languages</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {therapist.languages.slice(0, 3).map((language, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200"
+                          >
+                            {language}
+                          </span>
+                        ))}
+                        {therapist.languages.length > 3 && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                            +{therapist.languages.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Additional Info */}
+                  <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-100">
+                    <div className="flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                      </svg>
+                      <span>{therapist.responseTime || 15}min response</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                      </svg>
+                      <span>{therapist.experience || 2}+ years</span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -485,10 +675,11 @@ export default function HomePage() {
 
       <BottomNav />
 
+    
       {/* Cart Summary Modal */}
       {showCart && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50 p-4">
-          <div className="bg-white rounded-t-2xl w-full max-w-md max-h-[80vh] overflow-y-auto border border-gray-200 shadow-xl">
+        <div className="fixed inset-0 bg-white  flex items-end justify-center z-50 p-4">
+          <div className="bg-white rounded-t-2xl w-full max-w-md h-full overflow-y-auto border border-gray-200 shadow-xl">
             <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-2xl">
               <div className="flex justify-between items-center">
                 <div>
@@ -596,7 +787,7 @@ export default function HomePage() {
 
       {/* Group Booking Menu Modal */}
       {showGroupMenu && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-white h-full flex items-end justify-center z-50 p-4">
           <div className="bg-white rounded-t-2xl w-full max-w-md max-h-[85vh] overflow-y-auto border border-gray-200 shadow-xl">
             <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-t-2xl">
               <div className="flex justify-between items-center">

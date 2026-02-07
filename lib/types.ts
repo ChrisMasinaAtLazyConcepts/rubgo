@@ -10,6 +10,7 @@ export interface MassageService {
 }
 
 export interface Booking {
+  duration: number
   id: string
   scheduledTime: string
   therapist: {

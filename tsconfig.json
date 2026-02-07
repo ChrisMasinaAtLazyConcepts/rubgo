@@ -34,7 +34,8 @@
     ".next/types/**/*.ts",
     "app/App.js",
     "next-env.d.ts",
-    "out/types/**/*.ts"
+    "out/types/**/*.ts",
+    "dist/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

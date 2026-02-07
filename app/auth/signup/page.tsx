@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
@@ -9,12 +9,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import Link from "next/link"
-import { Loader2, ArrowLeft, Eye, EyeOff, User, Users, Camera, X, Fingerprint, CheckCircle, Shield, AlertCircle } from "lucide-react"
+import { Loader2, ArrowLeft, Eye, EyeOff, User, Users, Camera, X, CheckCircle, Shield, AlertCircle, Mail, Phone as PhoneIcon, Lock, Building, AlertTriangle } from "lucide-react"
 import { motion } from "framer-motion"
+import { toast } from "sonner"
+import SelfieVerification from "@/components/selfie-verification"
+import HomePage from "@/app/home/page"
+
+// API endpoints
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
 
 export default function SignUpPage() {
   const router = useRouter()
-  const { signUp } = useAuth()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
@@ -26,22 +31,94 @@ export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [acceptedTerms, setAcceptedTerms] = useState(false)
+  
+  // State for terms popup and medical consents - CORRECTED: Only declare once
   const [showTermsPopup, setShowTermsPopup] = useState(false)
+  const [medicalConsentGiven, setMedicalConsentGiven] = useState(false)
+  const [touchConsentGiven, setTouchConsentGiven] = useState(false)
+  const [audioConsentGiven, setAudioConsentGiven] = useState(false)
+  const [termsConsentGiven, setTermsConsentGiven] = useState(false)
+  
   const [currentStep, setCurrentStep] = useState<'form' | 'verification' | 'success'>('form')
   const [verificationProgress, setVerificationProgress] = useState(0)
   const [isVerifying, setIsVerifying] = useState(false)
-  const [verificationMethod, setVerificationMethod] = useState<'selfie' | 'fingerprint' | null>(null)
-  const [hasFingerprintSupport, setHasFingerprintSupport] = useState(false)
-
+  const [verificationMethod, setVerificationMethod] = useState<'selfie' | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  // Check for fingerprint support
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'PublicKeyCredential' in window) {
-      setHasFingerprintSupport(true)
+  // API: Handle user signup
+  const handleSignup = async (userData: any) => {
+    try {
+      setIsLoading(true)
+      setError("")
+
+      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Signup failed')
+      }
+
+      // Store token and user data
+      if (data.token) {
+        localStorage.setItem('auth_token', data.token)
+        localStorage.setItem('user', JSON.stringify(data.user))
+      }
+
+      toast.success('Account created successfully!')
+      return data
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Signup failed'
+      setError(errorMessage)
+      toast.error(errorMessage)
+      throw err
+    } finally {
+      setIsLoading(false)
     }
-  }, [])
+  }
+
+  // API: Handle verification
+  const handleVerification = async (verificationData: any) => {
+    try {
+      setIsVerifying(true)
+      
+      const token = localStorage.getItem('auth_token')
+      if (!token) {
+        throw new Error('No authentication token found')
+      }
+
+      const response = await fetch(`${API_BASE_URL}/auth/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(verificationData),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Verification failed')
+      }
+
+      toast.success('Verification completed!')
+      return data
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Verification failed'
+      toast.error(errorMessage)
+      throw err
+    } finally {
+      setIsVerifying(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,6 +134,11 @@ export default function SignUpPage() {
       return
     }
 
+    if (!audioConsentGiven || !medicalConsentGiven || !touchConsentGiven || !termsConsentGiven) {
+      setError("Please complete all required consents")
+      return
+    }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match")
       return
@@ -67,21 +149,36 @@ export default function SignUpPage() {
       return
     }
 
-    setIsLoading(true)
-
     try {
-      await signUp(email, password, name)
-      setCurrentStep('verification')
+      const userData = {
+        name,
+        email,
+        phone,
+        password,
+        userType,
+        audioConsentGiven,
+        medicalConsentGiven,
+        touchConsentGiven,
+        termsConsentGiven,
+        acceptedTerms
+      }
+
+      const result = await handleSignup(userData)
+      
+      // If therapist, go to verification
+      if (userType === "therapist") {
+        setCurrentStep('verification')
+      } else {
+        // For clients, go directly to success
+        setCurrentStep('success')
+      }
     } catch (err) {
-      setError("Failed to create account. Please try again.")
-    } finally {
-      setIsLoading(false)
+      // Error already handled in handleSignup
     }
   }
 
   const startSelfieVerification = async () => {
     setVerificationMethod('selfie')
-    setIsVerifying(true)
     
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -102,7 +199,7 @@ export default function SignUpPage() {
     }
   }
 
-  const captureSelfie = () => {
+  const captureSelfie = async () => {
     if (videoRef.current && canvasRef.current) {
       const context = canvasRef.current.getContext('2d')
       if (context) {
@@ -110,35 +207,28 @@ export default function SignUpPage() {
         canvasRef.current.height = videoRef.current.videoHeight
         context.drawImage(videoRef.current, 0, 0)
         
-        // Start verification process
-        simulateVerification()
+        // Convert canvas to blob
+        canvasRef.current.toBlob(async (blob) => {
+          if (blob) {
+            // Create FormData for file upload
+            const formData = new FormData()
+            formData.append('selfie', blob, 'selfie.jpg')
+            formData.append('verificationType', 'selfie')
+            
+            try {
+              await handleVerification(formData)
+              setVerificationProgress(100)
+              
+              setTimeout(() => {
+                setCurrentStep('success')
+              }, 500)
+            } catch (err) {
+              // Error already handled
+            }
+          }
+        }, 'image/jpeg')
       }
     }
-  }
-
-  const simulateVerification = () => {
-    setIsVerifying(true)
-    setVerificationProgress(0)
-    
-    const interval = setInterval(() => {
-      setVerificationProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval)
-          setTimeout(() => {
-            setIsVerifying(false)
-            setCurrentStep('success')
-          }, 500)
-          return 100
-        }
-        return prev + 2
-      })
-    }, 100)
-  }
-
-  const handleFingerprintVerification = () => {
-    setVerificationMethod('fingerprint')
-    setIsVerifying(true)
-    simulateVerification()
   }
 
   const handleVerificationSuccess = () => {
@@ -149,283 +239,109 @@ export default function SignUpPage() {
     }
   }
 
-  // Terms Popup Component
-  const TermsPopup = () => {
-    if (!showTermsPopup) return null
-
+  // Sleek Button Component
+  const SleekButton = ({ 
+    children, 
+    onClick, 
+    variant = "primary",
+    loading = false,
+    disabled = false,
+    fullWidth = true,
+    className = "",
+    icon: Icon
+  }: {
+    children: React.ReactNode
+    onClick?: () => void
+    variant?: 'primary' | 'secondary' | 'outline'
+    loading?: boolean
+    disabled?: boolean
+    fullWidth?: boolean
+    className?: string
+    icon?: React.ComponentType<{ className?: string }>
+  }) => {
+    const baseClasses = "relative overflow-hidden transition-all duration-300 font-medium rounded-xl"
+    const variantClasses = {
+      primary: "bg-gradient-to-r from-[#71CBD1] to-[#5bb5c1] text-white hover:from-[#5bb5c1] hover:to-[#4aa2ad] active:scale-[0.98] shadow-lg hover:shadow-xl",
+      secondary: "bg-gradient-to-r from-gray-100 to-gray-200 text-gray-900 hover:from-gray-200 hover:to-gray-300 border border-gray-300",
+      outline: "bg-transparent border-2 border-[#71CBD1] text-[#71CBD1] hover:bg-[#71CBD1]/10"
+    }
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-          <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900">RubHub Terms of Service</h2>
-            <button
-              onClick={() => setShowTermsPopup(false)}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X size={24} />
-            </button>
-          </div>
-          
-          <div className="p-6 space-y-6 text-gray-700">
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">1. Acceptance of Terms</h3>
-              <p className="text-sm">
-                By accessing and using RubHub, you accept and agree to be bound by the terms and provision of this agreement.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">2. Description of Service</h3>
-              <p className="text-sm">
-                RubHub provides a platform connecting massage therapists with clients. Our services include but are not limited to:
-              </p>
-              <ul className="text-sm list-disc list-inside space-y-1 ml-4">
-                <li>Booking management for massage sessions</li>
-                <li>Therapist discovery and matching</li>
-                <li>Payment processing services</li>
-                <li>Communication tools between clients and therapists</li>
-              </ul>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">3. User Responsibilities</h3>
-              <p className="text-sm">
-                As a user of RubHub, you agree to:
-              </p>
-              <ul className="text-sm list-disc list-inside space-y-1 ml-4">
-                <li>Provide accurate and complete information during registration</li>
-                <li>Maintain the security of your account credentials</li>
-                <li>Use the service in compliance with all applicable laws</li>
-                <li>Respect the privacy and rights of other users</li>
-              </ul>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">4. Data Processing and Privacy</h3>
-              <p className="text-sm">
-                We collect and process your personal data in accordance with applicable data protection laws including:
-              </p>
-              <ul className="text-sm list-disc list-inside space-y-1 ml-4">
-                <li>Account management and authentication</li>
-                <li>Service delivery and booking coordination</li>
-                <li>Communication regarding your appointments</li>
-                <li>Payment processing and financial transactions</li>
-                <li>Service improvement and customer support</li>
-              </ul>
-              <p className="text-sm mt-2">
-                Your data may be shared with verified therapists for appointment purposes and with payment processors for transaction handling.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">5. Payment Terms</h3>
-              <p className="text-sm">
-                All payments are processed securely through our payment partners. By using our service, you agree to:
-              </p>
-              <ul className="text-sm list-disc list-inside space-y-1 ml-4">
-                <li>Pay all applicable fees for services rendered</li>
-                <li>Authorize RubHub to charge your provided payment method</li>
-                <li>Accept our cancellation and refund policies</li>
-              </ul>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">6. Limitation of Liability</h3>
-              <p className="text-sm">
-                RubHub acts as an intermediary platform and is not responsible for the quality of services provided by individual therapists. Users are encouraged to review therapist profiles and ratings before booking.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">7. Termination</h3>
-              <p className="text-sm">
-                We reserve the right to terminate or suspend accounts that violate our terms of service or engage in fraudulent activities.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">8. Changes to Terms</h3>
-              <p className="text-sm">
-                RubHub may modify these terms at any time. Continued use of the service after changes constitutes acceptance of the modified terms.
-              </p>
-            </div>
-
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600">
-                <strong>Contact Information:</strong><br />
-                For questions about these terms, please contact us at:<br />
-                legal@rubhub.co.za or +27 11 123 4567
-              </p>
-            </div>
-          </div>
-
-          <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex justify-end">
-            <Button
-              onClick={() => setShowTermsPopup(false)}
-              className="bg-[#71CBD1] hover:bg-[#5bb5c1] text-black font-semibold"
-            >
-              I Understand
-            </Button>
-          </div>
+      <button
+        onClick={onClick}
+        disabled={disabled || loading}
+        className={`
+          ${baseClasses}
+          ${variantClasses[variant]}
+          ${fullWidth ? 'w-full' : ''}
+          ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
+          ${className}
+          px-6 py-3
+        `}
+      >
+        <div className="flex items-center justify-center gap-2">
+          {Icon && <Icon className="w-5 h-5" />}
+          {loading && <Loader2 className="w-5 h-5 animate-spin" />}
+          <span>{children}</span>
         </div>
-      </div>
+      </button>
     )
   }
 
-  // Selfie Verification Component
-  const SelfieVerification = () => {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-100 flex flex-col">
-        <div className="p-4 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setCurrentStep('form')} 
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <ArrowLeft size={20} />
-              <span>Back</span>
-            </button>
-            <div className="flex-1 text-center">
-              <span className="text-sm text-gray-600">Identity Verification</span>
-            </div>
+  // Sleek Input Component
+  const SleekInput = ({ 
+    label, 
+    type, 
+    value, 
+    onChange, 
+    placeholder, 
+    icon: Icon,
+    required = false,
+    disabled = false
+  }: {
+    label: string
+    type: string
+    value: string
+    onChange: (value: string) => void
+    placeholder: string
+    icon?: React.ComponentType<{ className?: string }>
+    required?: boolean
+    disabled?: boolean
+  }) => (
+    <div className="space-y-2">
+      <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+        {Icon && <Icon className="w-4 h-4" />}
+        {label}
+      </Label>
+      <div className="relative">
+        <Input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          required={required}
+          disabled={disabled}
+          className="h-12 rounded-xl border-gray-300 focus:border-[#71CBD1] focus:ring-[#71CBD1] bg-white/80 backdrop-blur-sm pl-10 transition-all duration-200"
+        />
+        {Icon && (
+          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+            <Icon className="w-5 h-5" />
           </div>
-        </div>
-
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="max-w-md w-full text-center">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="space-y-6"
-            >
-              {/* Header */}
-              <div className="space-y-3">
-                <div className="w-16 h-16 bg-[#71CBD1] rounded-2xl flex items-center justify-center mx-auto shadow-lg">
-                  <Shield className="w-8 h-8 text-white" />
-                </div>
-                <h1 className="text-2xl font-bold text-gray-800">Verify Your Identity</h1>
-                <p className="text-gray-600">
-                  We need to verify that you match the name and ID provided for security purposes
-                </p>
-              </div>
-
-              {/* Verification Options */}
-              {!isVerifying && (
-                <motion.div
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="space-y-4"
-                >
-                  <Card className="border-2 border-dashed border-blue-200 hover:border-blue-300 transition-colors cursor-pointer bg-white/80 backdrop-blur-sm">
-                    <CardContent className="p-6" onClick={startSelfieVerification}>
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                          <Camera className="w-6 h-6 text-blue-600" />
-                        </div>
-                        <div className="text-left">
-                          <h3 className="font-semibold text-gray-800">Take a Selfie</h3>
-                          <p className="text-sm text-gray-600">Quick facial recognition verification</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  
-                </motion.div>
-              )}
-
-              {/* Camera View */}
-              {isVerifying && verificationMethod === 'selfie' && (
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="space-y-6"
-                >
-                  <div className="relative bg-black rounded-2xl overflow-hidden shadow-2xl">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-80 object-cover"
-                    />
-                    <div className="absolute inset-0 border-4 border-white/20 rounded-2xl pointer-events-none"></div>
-                    <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
-                      Live Camera
-                    </div>
-                  </div>
-
-                  <Button
-                    onClick={captureSelfie}
-                    className="w-full bg-[#71CBD1] hover:bg-[#5bb5c1] text-white font-semibold py-3 rounded-xl shadow-lg"
-                  >
-                    <Camera className="w-5 h-5 mr-2" />
-                    Capture Selfie
-                  </Button>
-
-                  <canvas ref={canvasRef} className="hidden" />
-                </motion.div>
-              )}
-
-              {/* Verification Progress */}
-              {isVerifying && verificationProgress > 0 && (
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="space-y-4"
-                >
-                  <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-center gap-3">
-                        <Loader2 className="w-6 h-6 text-[#71CBD1] animate-spin" />
-                        <span className="font-semibold text-gray-800">Verifying Identity</span>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm text-gray-600">
-                          <span>Checking facial match...</span>
-                          <span>{verificationProgress}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <motion.div
-                            className="bg-gradient-to-r from-[#71CBD1] to-green-500 h-2 rounded-full"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${verificationProgress}%` }}
-                            transition={{ duration: 0.5 }}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="text-xs text-gray-500 space-y-1">
-                        <p>✓ Comparing with provided name: {name}</p>
-                        <p>✓ Running security checks</p>
-                        <p>✓ Verifying identity documents</p>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Security Info */}
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
-                <div className="flex items-start gap-3">
-                  <Shield className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-blue-800">
-                    <p className="font-semibold">Your security is our priority</p>
-                    <p className="mt-1">We use advanced encryption and never store your biometric data. This verification helps prevent fraud and keeps our community safe.</p>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </div>
+        )}
       </div>
-    )
-  }
+    </div>
+  )
 
-  // Success Component
+  // Success Component with auto-redirect
   const SuccessScreen = () => {
+    useEffect(() => {
+      // Redirect to homepage after 3 seconds
+      const timer = setTimeout(() => {
+        router.push('/home')
+      }, 3000)
+      
+      return () => clearTimeout(timer)
+    }, [router])
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex flex-col items-center justify-center p-6">
         <motion.div
@@ -449,24 +365,9 @@ export default function SignUpPage() {
             <p className="text-gray-600 text-lg">
               Your identity has been successfully verified. Welcome to RubHub{userType === 'therapist' ? ' as a Therapist!' : '!'}
             </p>
-          </div>
-
-          {/* Next Steps */}
-          <div className="bg-white rounded-2xl p-6 shadow-lg border border-green-100">
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 text-sm text-gray-700">
-                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                <span>Identity verified against provided information</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-gray-700">
-                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                <span>Security checks completed</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-gray-700">
-                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                <span>Account activated successfully</span>
-              </div>
-            </div>
+            <p className="text-gray-500 text-sm mt-4">
+              Redirecting to homepage in 3 seconds...
+            </p>
           </div>
 
           {/* Continue Button */}
@@ -476,12 +377,214 @@ export default function SignUpPage() {
             transition={{ delay: 0.5 }}
           >
             <Button
-              onClick={handleVerificationSuccess}
+              onClick={() => router.push('/home')}
               className="w-full bg-[#71CBD1] hover:bg-[#5bb5c1] text-white font-semibold py-4 rounded-2xl shadow-lg text-lg"
             >
-              Continue to {userType === 'therapist' ? 'Therapist Dashboard' : 'Home'}
+              Go to Homepage Now
             </Button>
           </motion.div>
+        </motion.div>
+      </div>
+    )
+  }
+
+  // Terms Popup Component with Medical Consent
+  const TermsPopup = () => {
+    if (!showTermsPopup) return null
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl"
+        >
+          <div className="sticky top-0 bg-white border-b border-gray-100 p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#71CBD1]/10 rounded-full flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-[#71CBD1]" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Medical Consent & Terms</h2>
+                  <p className="text-sm text-gray-600">Important medical and safety information</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowTermsPopup(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+          
+          <div className="p-6 space-y-6">
+            {/* Safety Notice */}
+            <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+              <h3 className="font-semibold text-blue-900 mb-2">Safety First</h3>
+              <p className="text-sm text-blue-800">
+                For everyone's protection, sessions may be audio recorded and stored securely for 30 days.
+              </p>
+            </div>
+
+            {/* Medical Disclosures */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-gray-900">Medical Disclosures & Consent</h3>
+              <ul className="space-y-3">
+                <li className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">I confirm I have <strong>no current injuries</strong> that could be aggravated by massage therapy</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">I confirm I am <strong>not pregnant</strong> (or have consulted my physician if pregnant)</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">I confirm I have <strong>no allergies</strong> to massage oils, lotions, or aromatherapy products</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">I consent to therapeutic touch as appropriate for the massage treatment</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">I will communicate any discomfort or need for pressure adjustment during the session</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Terms & Conditions */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-gray-900">Terms & Privacy</h3>
+              <ul className="space-y-3">
+                <li className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">Our Terms of Service and Privacy Policy</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">Audio recording policy for safety (30-day storage)</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">Data processing in accordance with applicable laws</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-gray-700">I will notify my therapist of any health changes before future sessions</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Consent Checkboxes */}
+            <div className="space-y-4">
+              <div className="p-4 bg-red-50 rounded-xl border border-red-200">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="medical-consent"
+                    checked={medicalConsentGiven}
+                    onChange={(e) => setMedicalConsentGiven(e.target.checked)}
+                    className="mt-1 w-5 h-5 rounded border-red-300 text-red-600 focus:ring-red-500"
+                  />
+                  <label htmlFor="medical-consent" className="text-sm text-red-800">
+                    <strong>Medical Consent:</strong> I confirm all medical disclosures above are accurate. I understand providing false information may void insurance coverage and could be harmful to my health.
+                  </label>
+                </div>
+              </div>
+
+              <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="touch-consent"
+                    checked={touchConsentGiven}
+                    onChange={(e) => setTouchConsentGiven(e.target.checked)}
+                    className="mt-1 w-5 h-5 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="touch-consent" className="text-sm text-blue-800">
+                    <strong>Therapeutic Touch Consent:</strong> I consent to appropriate therapeutic touch for massage treatment and will communicate any discomfort immediately.
+                  </label>
+                </div>
+              </div>
+
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-300">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="audio-consent"
+                    checked={audioConsentGiven}
+                    onChange={(e) => setAudioConsentGiven(e.target.checked)}
+                    className="mt-1 w-5 h-5 rounded border-gray-300 text-[#71CBD1] focus:ring-[#71CBD1]"
+                  />
+                  <label htmlFor="audio-consent" className="text-sm text-gray-700">
+                    <strong>Audio Recording Consent:</strong> I acknowledge and consent to audio recordings for safety purposes (stored for 30 days)
+                  </label>
+                </div>
+              </div>
+
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-300">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="terms-consent"
+                    checked={termsConsentGiven}
+                    onChange={(e) => setTermsConsentGiven(e.target.checked)}
+                    className="mt-1 w-5 h-5 rounded border-gray-300 text-[#71CBD1] focus:ring-[#71CBD1]"
+                  />
+                  <label htmlFor="terms-consent" className="text-sm text-gray-700">
+                    <strong>Terms Acceptance:</strong> I accept the Terms of Service and Privacy Policy
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Emergency Contact Reminder */}
+            <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="font-semibold text-yellow-800 text-sm">Important Reminder</h4>
+                  <p className="text-xs text-yellow-700 mt-1">
+                    Always inform your therapist of any health changes. In case of emergency, use the emergency button or call local emergency services immediately.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="sticky bottom-0 bg-white border-t border-gray-100 p-6">
+            <Button
+              onClick={() => {
+                if (!medicalConsentGiven) {
+                  toast.error("Please confirm medical disclosures")
+                  return
+                }
+                if (!touchConsentGiven) {
+                  toast.error("Please consent to therapeutic touch")
+                  return
+                }
+                if (!audioConsentGiven) {
+                  toast.error("Please acknowledge audio recording policy")
+                  return
+                }
+                if (!termsConsentGiven) {
+                  toast.error("Please accept terms and conditions")
+                  return
+                }
+                setShowTermsPopup(false)
+                toast.success("All consents recorded successfully.")
+              }}
+              className="w-full bg-gradient-to-r from-[#71CBD1] to-teal-600 hover:from-[#5bb5c1] hover:to-teal-700 text-white py-3 rounded-xl font-semibold"
+            >
+              I Understand & Agree to All Terms
+            </Button>
+            <p className="text-xs text-gray-500 text-center mt-3">
+              This consent is valid for all future sessions unless revoked in writing
+            </p>
+          </div>
         </motion.div>
       </div>
     )
@@ -504,147 +607,96 @@ export default function SignUpPage() {
   // Show account type selection if not chosen
   if (!userType) {
     return (
-      <div className="min-h-screen bg-[#F9FCFF]">
+      <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
         <TermsPopup />
         
-        {/* Header with SA Flag */}
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
+        <div className="p-6 max-w-md mx-auto">
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-8">
             <button 
               onClick={() => router.back()} 
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors p-2 hover:bg-gray-100 rounded-full"
             >
               <ArrowLeft size={20} />
-              <span>Back</span>
             </button>
-            <div className="flex items-center gap-2">
-              <img 
-                className="w-6 h-6 object-contain rounded"
-                src="/sa_logo.jpg"
-                alt="South Africa" 
-              />
-              <span className="text-sm text-gray-600">South Africa</span>
+            <div className="flex-1 text-center">
+              <h1 className="text-xl font-bold text-gray-900">Join RubHub</h1>
             </div>
           </div>
-        </div>
 
-        <div className="text-center p-6 max-w-md mx-auto">
-          <span>Join RubHub</span>
-          {/* Logo and Title - Centered */}
-          <div className="text-center mb-5">
-		     <div className="space-y-2">
-              <h1 className="text-4xl font-bold text-green-700">
-                RubHub<sup className="text-sm font-normal ml-0.5">™</sup>
-              </h1>
-              <p className="text-gray-600">version 1.0.0 BETA</p>
-            </div>
-            <div className="flex justify-center mb-4 pt-5">
+          {/* Main Content */}
+          <div className="text-center">
+            <div className="mb-8">
               <img 
-                className="w-48 h-48 object-contain"
+                className="mx-auto w-48 h-48 object-contain"
                 src="/rubgo-login.png"
                 alt="RubHub Logo" 
               />
+              <p className="text-gray-500 mt-4">Choose your account type to get started</p>
             </div>
-            
-         
-            <p className="text-gray-500 mt-4">Choose your account type to get started</p>
-          </div>
 
-          {/* Account Type Selection */}
-          <div className="space-y-4 mb-8">
-          {/* Client Card */}
-        <Card 
-              className="bg-gray-100 border-gray-700 cursor-pointer hover:border-[#71CBD1] transition-colors"
-              onClick={() => setUserType("client")}
-            >
-          <CardContent className="p-6">
-            <div className="flex gap-2 items-start">
-               <div className="w-12 h-12 bg-[#71CBD1] rounded-full flex items-center justify-center">
-                    <User className="w-6 h-6 text-black" />
+            {/* Account Type Selection */}
+            <div className="space-y-4 mb-8">
+              <Card 
+                className="border-2 border-gray-200 hover:border-[#71CBD1] transition-all duration-300 cursor-pointer hover:shadow-lg bg-white/80 backdrop-blur-sm overflow-hidden group"
+                onClick={() => setUserType("client")}
+              >
+                <CardContent className="p-6">
+                  <div className="flex gap-4 items-start">
+                    <div className="w-14 h-14 bg-gradient-to-br from-[#71CBD1] to-[#5bb5c1] rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300">
+                      <User className="w-7 h-7 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-2 text-start">
+                      <div className="space-y-1">
+                        <h3 className="font-bold text-lg text-gray-900">Client</h3>
+                        <p className="text-gray-600 text-sm leading-relaxed">
+                          Book licensed massage therapists
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-green-600">
+                        <CheckCircle className="w-3 h-3" />
+                        Instant access
+                      </div>
+                    </div>
                   </div>
-              <div className="flex-1 min-w-0 space-y-2">
-                <div className="space-y-1">
-                  <h3 className="font-semibold text-lg tracking-tight ">Register as Client</h3>
-                  <p className="text-gray/90 text-sm leading-relaxed font-normal">
-                    Find and book licensed massage therapists near you
-                  </p>
-                </div>
-                <div className="flex items-start text-xs">
-                  <div className="w-1.5 h-1.5 rounded-full"></div>
-                  Instant access to certified professionals
-                </div>
-              </div>
+                </CardContent>
+              </Card>
+
+              <Card 
+                className="border-2 border-gray-200 hover:border-green-500 transition-all duration-300 cursor-pointer hover:shadow-lg bg-gradient-to-br from-green-50 to-white overflow-hidden group"
+                onClick={() => setUserType("therapist")}
+              >
+                <CardContent className="p-6">
+                  <div className="flex gap-4 items-start">
+                    <div className="w-14 h-14 bg-gradient-to-br from-green-600 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300">
+                      <Building className="w-7 h-7 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-2 text-start">
+                      <div className="space-y-1">
+                        <h3 className="font-bold text-lg text-gray-900">Therapist</h3>
+                        <p className="text-gray-600 text-sm leading-relaxed">
+                          Join our professional network
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-blue-600">
+                        <Shield className="w-3 h-3" />
+                        Verification required
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
 
-          {/* Therapist Card */}
-          <Card 
-            className="bg-green-700 border-2 border-gray-200 cursor-pointer hover:border-green-500 transition-all duration-200 shadow-sm hover:shadow-md"
-            onClick={() => setUserType("therapist")}
-          >
-            <CardContent className="p-6">
-              <div className="flex gap-4 items-start">
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div className="space-y-1">
-                    <h3 className="font-semibold text-lg tracking-tight text-white">Register as Therapist</h3>
-                    <p className="text-white/90 text-sm leading-relaxed font-normal">
-                      Join our network and start accepting clients
-                    </p>
-                  </div>
-                  <div className="flex items-center text-xs text-white/80">
-                    <div className="w-1.5 h-1.5 bg-white/60 rounded-full"></div>
-                    Additional verification required
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-         { /* Sign Up Link */}
-          <div className="text-center text-sm pt-4">
-            <span className="text-gray-400">Already have an account? </span>
-            <Link 
-              href="/auth/signin" 
-              className="text-[#71CBD1] hover:text-[#5bb5c1] font-semibold transition-colors"
-            >
-              Sign in
-            </Link>
-          </div> 
-          </div>
-
-         
-
-          {/* Therapist Onboarding Preview */}
-          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <h3 className="text-sm font-semibold mb-3 text-gray-900">Therapist Application Process</h3>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 text-sm text-gray-600">
-                <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
-                  1
-                </div>
-                <span>ID & Selfie Verification</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-gray-600">
-                <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
-                  2
-                </div>
-                <span>Banking Details Setup</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-gray-600">
-                <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
-                  3
-                </div>
-                <span>Video Assessments</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-gray-600">
-                <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
-                  4
-                </div>
-                <span>Background Check</span>
-              </div>
+            {/* Login Link */}
+            <div className="text-center text-sm">
+              <span className="text-gray-500">Already have an account? </span>
+              <Link 
+                href="/auth/signin" 
+                className="text-[#71CBD1] hover:text-[#5bb5c1] font-semibold transition-colors"
+              >
+                Sign in
+              </Link>
             </div>
           </div>
         </div>
@@ -652,111 +704,83 @@ export default function SignUpPage() {
     )
   }
 
+  // Main signup form
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
       <TermsPopup />
       
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center gap-4">
+      <div className="p-6 max-w-md mx-auto">
+        <div className="flex items-center gap-4 mb-8">
           <button 
             onClick={() => setUserType(null)} 
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors p-2 hover:bg-gray-100 rounded-full"
           >
             <ArrowLeft size={20} />
-            <span>Back</span>
           </button>
-          <div className="flex-1 text-center">
-            <span className="text-sm text-gray-600">Signing up as </span>
-            <span className="text-[#71CBD1] font-semibold">
-              {userType === "therapist" ? "Therapist" : "Client"}
-            </span>
+          <div className="flex-1">
+            <h1 className="text-xl font-bold text-gray-900">
+              {userType === "therapist" ? "Apply as Therapist" : "Create Account"}
+            </h1>
+            <p className="text-sm text-gray-500">
+              {userType === "therapist" 
+                ? "Join our professional network" 
+                : "Sign up to book massage therapists"
+              }
+            </p>
           </div>
-        </div>
-      </div>
-
-      <div className="p-6 max-w-md mx-auto">
-        {/* Logo and Title */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <img 
-              className="w-24 h-24 object-contain"
-              src="/rubbgo2.png"
-              alt="RubHub" 
-            />
-          </div>
-          <h1 className="text-2xl font-bold mb-2 text-gray-900">
-            {userType === "therapist" ? "Apply as Therapist" : "Create Client Account"}
-          </h1>
-          <p className="text-gray-600">
-            {userType === "therapist" 
-              ? "Complete your application to join our network" 
-              : "Sign up to book massage therapists near you"
-            }
-          </p>
         </div>
 
         {/* Sign Up Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Full Name */}
-          <div className="space-y-2">
-            <Label htmlFor="name" className="text-gray-900 text-sm font-medium">Full Name</Label>
-            <Input
-              id="name"
-              type="text"
-              placeholder="Enter your full name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              disabled={isLoading}
-              className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 h-12 rounded-lg focus:border-[#71CBD1] focus:ring-[#71CBD1]"
-            />
-          </div>
+          <SleekInput
+            label="Full Name"
+            type="text"
+            value={name}
+            onChange={setName}
+            placeholder="John Smith"
+            icon={User}
+            required
+          />
 
-          {/* Email */}
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-gray-900 text-sm font-medium">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              disabled={isLoading}
-              className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 h-12 rounded-lg focus:border-[#71CBD1] focus:ring-[#71CBD1]"
-            />
-          </div>
+          <SleekInput
+            label="Email Address"
+            type="email"
+            value={email}
+            onChange={setEmail}
+            placeholder="you@example.com"
+            icon={Mail}
+            required
+          />
 
-          {/* Phone Number */}
-          <div className="space-y-2">
-            <Label htmlFor="phone" className="text-gray-900 text-sm font-medium">Phone Number</Label>
-            <Input
-              id="phone"
-              type="tel"
-              placeholder="+27 12 345 6789"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-              disabled={isLoading}
-              className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 h-12 rounded-lg focus:border-[#71CBD1] focus:ring-[#71CBD1]"
-            />
-          </div>
+          <SleekInput
+            label="Phone Number"
+            type="tel"
+            value={phone}
+            onChange={setPhone}
+            placeholder="+27 12 345 6789"
+            icon={PhoneIcon}
+            required
+          />
 
-          {/* Password */}
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-gray-900 text-sm font-medium">Password</Label>
+            <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+              <Lock className="w-4 h-4" />
+              Password
+            </Label>
             <div className="relative">
               <Input
-                id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Create a password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="Create a password"
                 required
                 disabled={isLoading}
-                className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 h-12 rounded-lg focus:border-[#71CBD1] focus:ring-[#71CBD1] pr-10"
+                className="h-12 rounded-xl border-gray-300 focus:border-[#71CBD1] focus:ring-[#71CBD1] bg-white/80 backdrop-blur-sm pl-10 pr-10 transition-all duration-200"
               />
+              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                <Lock className="w-5 h-5" />
+              </div>
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
@@ -767,20 +791,21 @@ export default function SignUpPage() {
             </div>
           </div>
 
-          {/* Confirm Password */}
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword" className="text-gray-900 text-sm font-medium">Confirm Password</Label>
+            <Label className="text-sm font-medium text-gray-700">Confirm Password</Label>
             <div className="relative">
               <Input
-                id="confirmPassword"
                 type={showConfirmPassword ? "text" : "password"}
-                placeholder="Confirm your password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm your password"
                 required
                 disabled={isLoading}
-                className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 h-12 rounded-lg focus:border-[#71CBD1] focus:ring-[#71CBD1] pr-10"
+                className="h-12 rounded-xl border-gray-300 focus:border-[#71CBD1] focus:ring-[#71CBD1] bg-white/80 backdrop-blur-sm pl-10 pr-10 transition-all duration-200"
               />
+              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                <Lock className="w-5 h-5" />
+              </div>
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -791,18 +816,18 @@ export default function SignUpPage() {
             </div>
           </div>
 
-          {/* Terms and Conditions Checkbox */}
+          {/* Terms Checkbox */}
           <div className="space-y-2">
-            <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl">
               <input
                 type="checkbox"
                 id="terms"
                 checked={acceptedTerms}
                 onChange={(e) => setAcceptedTerms(e.target.checked)}
-                className="mt-1 rounded border-gray-300 bg-white text-[#71CBD1] focus:ring-[#71CBD1] focus:ring-2"
+                className="mt-1 w-5 h-5 rounded border-gray-300 text-[#71CBD1] focus:ring-[#71CBD1]"
                 required
               />
-              <label htmlFor="terms" className="text-sm text-gray-700 leading-relaxed">
+              <label htmlFor="terms" className="text-sm text-gray-700">
                 I agree to the{" "}
                 <button
                   type="button"
@@ -815,57 +840,54 @@ export default function SignUpPage() {
                 <Link href="/privacy" className="text-[#71CBD1] hover:underline font-medium">
                   Privacy Policy
                 </Link>
-                . I understand that my personal data will be processed in accordance with 
-                applicable data protection laws.
               </label>
             </div>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
               <p className="text-red-700 text-sm">{error}</p>
             </div>
           )}
 
           {/* Sign Up Button */}
-          <Button 
-            type="submit" 
-            className="w-full bg-[#71CBD1] hover:bg-[#5bb5c1] text-white font-semibold h-12 rounded-lg text-base transition-colors duration-200 shadow-sm" 
+          <button
+            type="submit"
             disabled={isLoading}
+            className={`
+              w-full relative overflow-hidden transition-all duration-300 font-medium rounded-xl
+              bg-gradient-to-r from-[#71CBD1] to-[#5bb5c1] text-white 
+              hover:from-[#5bb5c1] hover:to-[#4aa2ad] active:scale-[0.98] shadow-lg hover:shadow-xl
+              ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}
+              px-6 py-3 mt-6
+            `}
           >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {userType === "therapist" ? "Starting application..." : "Creating account..."}
-              </>
-            ) : (
-              userType === "therapist" ? "Start Application" : "Create Account"
-            )}
-          </Button>
-			  
-		  
-        </form>
-
-          
-        {/* Additional Information for Therapists */}
-        {userType === "therapist" && (
-          <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-blue-800">
-                <p className="font-semibold mb-2">Application Requirements:</p>
-                <ul className="space-y-1">
-                  <li>• Valid ID document (South African ID or Passport)</li>
-                  <li>• Recent selfie for identity verification</li>
-                  <li>• Banking details for payments</li>
-                  <li>• Professional certifications (if applicable)</li>
-                  <li>• Background check authorization</li>
-                </ul>
-              </div>
+            <div className="flex items-center justify-center gap-2">
+              {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
+              <span>
+                {isLoading ? (
+                  "Creating Account..."
+                ) : userType === "therapist" ? (
+                  "Start Application"
+                ) : (
+                  "Create Account"
+                )}
+              </span>
             </div>
+          </button>
+
+          {/* Login Link */}
+          <div className="text-center text-sm pt-4">
+            <span className="text-gray-500">Already have an account? </span>
+            <Link 
+              href="/auth/signin" 
+              className="text-[#71CBD1] hover:text-[#5bb5c1] font-semibold transition-colors"
+            >
+              Sign in
+            </Link>
           </div>
-        )}
+        </form>
       </div>
     </div>
   )

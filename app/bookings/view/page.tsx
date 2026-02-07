@@ -1,62 +1,263 @@
 // app/bookings/[id]/page.tsx
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { BottomNav } from "@/components/bottom-nav"
 import { MobileHeader } from "@/components/mobile-header"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar, MapPin, Clock, Phone, MessageCircle, Star } from "lucide-react"
+import { Calendar, MapPin, Clock, Phone, MessageCircle, Star, Lock, Home, DoorOpen, Bell, Shield, Loader2, AlertCircle, Copy, Navigation, Building, Key, MapPin as MapPinIcon, Edit, Save, X } from "lucide-react"
+import { toast } from "sonner"
 
-interface PageProps {
-  params: Promise<{ id: string }>
+interface ArrivalInstructions {
+  buildingType: string;
+  address: string;
+  unitNumber: string;
+  floorNumber: string;
+  gateCode: string;
+  parkingInstructions: string;
+  entryInstructions: string;
+  specialNotes: string;
+  shareWithTherapist: boolean;
 }
 
-export async function generateStaticParams() {
-  // Return empty array - pages will be generated on demand
-  return []
+interface BookingData {
+  id: string;
+  therapistName: string;
+  service: string;
+  date: string;
+  time: string;
+  duration: string;
+  status: string;
+  price: number;
+  therapistETA: string;
+  location: string;
+  therapistRating: number;
+  therapistImage: string;
+  therapistPhone: string;
+  specialInstructions: string;
+  arrivalInstructions: ArrivalInstructions | null;
+  paymentStatus: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export default async function BookingDetailsPage({ params }: PageProps) {
-  // Await the params promise
-  const { id } = await params
-  const bookingId = id
+export default function BookingDetailsPage() {
+  const params = useParams();
+  const router = useRouter();
+  const bookingId = params.id as string;
+  
+  const [booking, setBooking] = useState<BookingData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [copySuccess, setCopySuccess] = useState<string>('');
+  const [isEditingArrival, setIsEditingArrival] = useState(false);
+  const [arrivalData, setArrivalData] = useState<ArrivalInstructions>({
+    buildingType: 'house',
+    address: '',
+    unitNumber: '',
+    floorNumber: '',
+    gateCode: '',
+    parkingInstructions: '',
+    entryInstructions: '',
+    specialNotes: '',
+    shareWithTherapist: true
+  });
+  const [savingArrival, setSavingArrival] = useState(false);
 
-  // Mock booking data - in a real app, you might fetch this from an API
-  // or use client-side fetching after the initial render
-  const booking = {
-    id: bookingId,
-    therapistName: "Sarah Johnson",
-    service: "Deep Tissue Massage",
-    date: "2024-01-15",
-    time: "14:00",
-    duration: "60 minutes",
-    status: "confirmed",
-    price: 450,
-    therapistETA: "15 min",
-    location: "123 Main Street, Sandton, Johannesburg",
-    therapistRating: 4.9,
-    therapistImage: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
-    therapistPhone: "+27 12 345 6789",
-    specialInstructions: "Please bring your own massage oil if preferred",
-    paymentStatus: "paid",
-  }
+  useEffect(() => {
+    fetchBookingDetails();
+  }, [bookingId]);
+
+  const fetchBookingDetails = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Get token from localStorage or cookies
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+      
+      const response = await fetch(`/api/bookings/${bookingId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ''}`
+        },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push('/login');
+          return;
+        }
+        throw new Error(`Failed to fetch booking: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setBooking(data);
+      
+      // Set arrival data if exists
+      if (data.arrivalInstructions) {
+        setArrivalData(data.arrivalInstructions);
+      } else {
+        // Use location as default address
+        setArrivalData(prev => ({
+          ...prev,
+          address: data.location || ''
+        }));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load booking details');
+      toast.error('Failed to load booking details');
+      console.error('Error fetching booking:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateArrivalInstructions = async () => {
+    try {
+      setSavingArrival(true);
+      
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+      
+      const response = await fetch(`/api/bookings/${bookingId}/arrival-instructions`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ''}`
+        },
+        body: JSON.stringify(arrivalData),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update arrival instructions: ${response.status}`);
+      }
+
+      const updatedBooking = await response.json();
+      setBooking(updatedBooking);
+      setIsEditingArrival(false);
+      toast.success('Arrival instructions updated successfully!');
+      
+    } catch (err) {
+      toast.error('Failed to update arrival instructions');
+      console.error('Error updating arrival instructions:', err);
+    } finally {
+      setSavingArrival(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case "confirmed": return "bg-green-500"
+      case "pending": return "bg-yellow-500"
+      case "in_progress":
       case "in-progress": return "bg-blue-500"
-      case "upcoming": return "bg-orange-500"
+      case "cancelled": return "bg-red-500"
       case "completed": return "bg-gray-500"
       default: return "bg-gray-500"
     }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-ZA', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const formatTime = (timeString: string) => {
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours);
+    const suffix = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${suffix}`;
+  };
+
+  const handleCopyToClipboard = (text: string, fieldName: string) => {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        setCopySuccess(fieldName);
+        toast.success(`Copied ${fieldName} to clipboard!`);
+        setTimeout(() => setCopySuccess(''), 2000);
+      })
+      .catch(err => {
+        console.error('Failed to copy:', err);
+        toast.error('Failed to copy to clipboard');
+      });
+  };
+
+  const handleCallTherapist = (phone: string) => {
+    window.location.href = `tel:${phone}`;
+  };
+
+  const handleMessageTherapist = (phone: string) => {
+    window.location.href = `sms:${phone}`;
+  };
+
+  const buildingTypeIcons = {
+    house: Home,
+    apartment: Building,
+    office: Building,
+    hotel: Key,
+    other: MapPinIcon
+  };
+
+  const getBuildingTypeIcon = (type: string) => {
+    const Icon = buildingTypeIcons[type as keyof typeof buildingTypeIcons] || MapPinIcon;
+    return <Icon className="h-4 w-4" />;
+  };
+
+  const getBuildingTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      house: 'House',
+      apartment: 'Apartment',
+      office: 'Office',
+      hotel: 'Hotel',
+      other: 'Other'
+    };
+    return labels[type] || 'Location';
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="mt-4 text-muted-foreground">Loading booking details...</p>
+        </div>
+      </div>
+    );
   }
 
-  // Client-side actions will need to be handled differently
-  const handleCallTherapist = `tel:${booking.therapistPhone}`
-  const handleMessageTherapist = `sms:${booking.therapistPhone}`
+  if (error || !booking) {
+    return (
+      <div className="min-h-screen bg-background">
+        <MobileHeader title="Booking Details" showBack={true} />
+        <div className="p-4 flex flex-col items-center justify-center h-[60vh]">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Booking</h2>
+          <p className="text-gray-600 text-center mb-6">{error || 'Booking not found'}</p>
+          <Button onClick={fetchBookingDetails} variant="outline">
+            <Loader2 className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+        <BottomNav />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <MobileHeader title="Booking Details" />
+      <MobileHeader title="Booking Details" showBack={true} />
 
       <div className="p-4 space-y-4">
         {/* Therapist Card */}
@@ -75,7 +276,7 @@ export default async function BookingDetailsPage({ params }: PageProps) {
                   <span className="text-sm text-muted-foreground">{booking.therapistRating} rating</span>
                 </div>
                 <Badge className={`${getStatusColor(booking.status)} text-white`}>
-                  {booking.status}
+                  {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                 </Badge>
               </div>
             </div>
@@ -89,7 +290,7 @@ export default async function BookingDetailsPage({ params }: PageProps) {
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="h-4 w-4" />
-                <span>{booking.date} at {booking.time}</span>
+                <span>{formatDate(booking.date)} at {formatTime(booking.time)}</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Clock className="h-4 w-4" />
@@ -115,17 +316,19 @@ export default async function BookingDetailsPage({ params }: PageProps) {
               </span>
             </div>
             <div className="flex gap-2">
-              <Button asChild className="flex-1 bg-green-500 hover:bg-green-600 text-white">
-                <a href={handleCallTherapist}>
-                  <Phone className="h-4 w-4 mr-2" />
-                  Call
-                </a>
+              <Button 
+                onClick={() => handleCallTherapist(booking.therapistPhone)}
+                className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+              >
+                <Phone className="h-4 w-4 mr-2" />
+                Call
               </Button>
-              <Button asChild className="flex-1 bg-blue-500 hover:bg-blue-600 text-white">
-                <a href={handleMessageTherapist}>
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Message
-                </a>
+              <Button 
+                onClick={() => handleMessageTherapist(booking.therapistPhone)}
+                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+              >
+                <MessageCircle className="h-4 w-4 mr-2" />
+                Message
               </Button>
             </div>
           </CardContent>
@@ -136,10 +339,145 @@ export default async function BookingDetailsPage({ params }: PageProps) {
           <CardContent className="p-4">
             <h3 className="font-semibold mb-2">Special Instructions</h3>
             <p className="text-sm text-muted-foreground">
-              {booking.specialInstructions}
+              {booking.specialInstructions || "No special instructions provided"}
             </p>
           </CardContent>
         </Card>
+
+  {/* Arrival Instructions */}
+  <Card>
+  <CardContent className="p-4">
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-2">
+        <Navigation className="h-5 w-5 text-blue-600" />
+        <h3 className="font-semibold">Arrival Instructions</h3>
+      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setIsEditingArrival(!isEditingArrival)}
+        className="h-8 px-2"
+      >
+        {isEditingArrival ? (
+          <X className="h-4 w-4" />
+        ) : (
+          <Edit className="h-4 w-4" />
+        )}
+      </Button>
+    </div>
+
+    {isEditingArrival ? (
+      <div className="space-y-4">
+        {/* Editing form - your existing code */}
+      </div>
+    ) : (
+      <div className="space-y-3">
+        {booking.arrivalInstructions ? (
+          <>
+            {/* Display existing arrival instructions */}
+            <div className="space-y-2">
+              <div className="flex items-start gap-2">
+                {getBuildingTypeIcon(booking.arrivalInstructions.buildingType)}
+                <div>
+                  <p className="font-medium">
+                    {getBuildingTypeLabel(booking.arrivalInstructions.buildingType)}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {booking.arrivalInstructions.address}
+                  </p>
+                </div>
+              </div>
+              
+              {booking.arrivalInstructions.unitNumber && (
+                <div className="flex items-center gap-2 text-sm">
+                  <DoorOpen className="h-4 w-4 text-gray-500" />
+                  <span>Unit: {booking.arrivalInstructions.unitNumber}</span>
+                </div>
+              )}
+              
+              {booking.arrivalInstructions.floorNumber && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Navigation className="h-4 w-4 text-gray-500" />
+                  <span>Floor: {booking.arrivalInstructions.floorNumber}</span>
+                </div>
+              )}
+              
+              {/* FIXED: Check for gateCode before rendering */}
+              {booking.arrivalInstructions.gateCode && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Bell className="h-4 w-4 text-gray-500" />
+                  <span>Access Code: {booking.arrivalInstructions.gateCode}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleCopyToClipboard(
+                      booking.arrivalInstructions!.gateCode, // Non-null assertion after checking
+                      'Access Code'
+                    )}
+                    className="h-6 w-6 p-0"
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              
+              {/* FIXED: Check for parkingInstructions before rendering */}
+              {booking.arrivalInstructions.parkingInstructions && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Lock className="h-4 w-4 text-gray-500" />
+                  <span>Parking: {booking.arrivalInstructions.parkingInstructions}</span>
+                </div>
+              )}
+              
+              {/* FIXED: Check for entryInstructions before rendering */}
+              {booking.arrivalInstructions.entryInstructions && (
+                <div className="flex items-start gap-2 text-sm">
+                  <MapPinIcon className="h-4 w-4 text-gray-500 mt-0.5" />
+                  <span>{booking.arrivalInstructions.entryInstructions}</span>
+                </div>
+              )}
+              
+              {/* FIXED: Check for specialNotes before rendering */}
+              {booking.arrivalInstructions.specialNotes && (
+                <div className="p-2 bg-gray-50 rounded-lg mt-2">
+                  <p className="text-xs font-medium text-gray-700 mb-1">
+                    Additional Notes:
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    {booking.arrivalInstructions.specialNotes}
+                  </p>
+                </div>
+              )}
+              
+              {/* FIXED: Check for shareWithTherapist before rendering */}
+              {booking.arrivalInstructions.shareWithTherapist && (
+                <div className="flex items-center gap-2 text-xs text-green-600 mt-2">
+                  <Shield className="h-3 w-3" />
+                  <span>Shared with therapist</span>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-4">
+            <Navigation className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+            <p className="text-sm text-gray-600 mb-3">
+              No arrival instructions set
+            </p>
+            <Button
+              onClick={() => setIsEditingArrival(true)}
+              variant="outline"
+              size="sm"
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Add Arrival Instructions
+            </Button>
+          </div>
+        )}
+      </div>
+    )}
+  </CardContent>
+</Card>
 
         {/* Payment Summary */}
         <Card>
@@ -174,5 +512,5 @@ export default async function BookingDetailsPage({ params }: PageProps) {
 
       <BottomNav />
     </div>
-  )
+  );
 }

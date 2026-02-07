@@ -1,5 +1,5 @@
 "use client"
-
+import * as faceapi from 'face-api.js';
 import React, { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Camera, Upload, CheckCircle, ArrowLeft, User, CreditCard, Video, FileText, Clock } from 'lucide-react'
@@ -35,7 +35,15 @@ export default function TherapistOnboarding() {
   const [isLoading, setIsLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLVideoElement>(null)
+	  
+	// Load models once (should be done when component mounts)
+	const loadFaceApiModels = async () => {
+	  await faceapi.nets.ssdMobilenetv1.loadFromUri('/models');
+	  await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+	  await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+	};
 
+	
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({
     personalInfo: {
       firstName: '',
@@ -88,17 +96,120 @@ export default function TherapistOnboarding() {
     }))
   }
 
-  const handleTakePhoto = async (documentType: keyof OnboardingData['documents']) => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-      if (cameraRef.current) {
-        cameraRef.current.srcObject = stream
-      }
-      // In a real app, you'd capture the photo from the video stream
-    } catch (error) {
-      console.error('Error accessing camera:', error)
-    }
-  }
+	const handleTakePhoto = async (documentType: keyof OnboardingData['documents']) => {
+	  try {
+		// First, ensure models are loaded
+		await loadFaceApiModels();
+
+		const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+		if (cameraRef.current) {
+		  cameraRef.current.srcObject = stream;
+		}
+
+		// Wait for camera to be ready
+		await new Promise(resolve => setTimeout(resolve, 1000));
+
+		// Capture photo from video stream
+		const canvas = document.createElement('canvas');
+		const context = canvas.getContext('2d');
+		if (!context || !cameraRef.current) {
+		  throw new Error('Could not capture photo');
+		}
+
+		canvas.width = cameraRef.current.videoWidth;
+		canvas.height = cameraRef.current.videoHeight;
+		context.drawImage(cameraRef.current, 0, 0, canvas.width, canvas.height);
+
+		// Convert canvas to image data
+		const capturedImage = canvas.toDataURL('image/jpeg');
+
+		// Get the previously taken selfie (you'll need to store this somewhere)
+		const selfieImage = await getStoredSelfie(); // You need to implement this
+
+		if (!selfieImage) {
+		  throw new Error('No selfie found. Please take a selfie first.');
+		}
+
+		// Create image elements for face-api.js
+		const img1 = await faceapi.fetchImage(selfieImage);
+		const img2 = await faceapi.fetchImage(capturedImage);
+
+		// Detect faces in both images
+		const detection1 = await faceapi
+		  .detectSingleFace(img1)
+		  .withFaceLandmarks()
+		  .withFaceDescriptor();
+
+		const detection2 = await faceapi
+		  .detectSingleFace(img2)
+		  .withFaceLandmarks()
+		  .withFaceDescriptor();
+
+		if (!detection1 || !detection2) {
+		  throw new Error('Could not detect faces in one or both images');
+		}
+
+		// Compare using Euclidean distance
+		const distance = faceapi.euclideanDistance(
+		  detection1.descriptor, 
+		  detection2.descriptor
+		);
+
+		// Similar if distance < 0.6 (adjust threshold as needed)
+		const isSamePerson = distance < 0.6;
+
+		console.log(`Face comparison distance: ${distance}, Is same person: ${isSamePerson}`);
+
+		// Handle the result
+		if (isSamePerson) {
+		  // Faces match - proceed with document processing
+		  await processDocumentPhoto(capturedImage, documentType);
+		} else {
+		  // Faces don't match - show error
+		  throw new Error('Face verification failed. Please ensure the document belongs to you.');
+		}
+
+		// Stop camera stream
+		stream.getTracks().forEach(track => track.stop());
+
+	  } catch (error) {
+		console.error('Error in face comparison:', error);
+		// Stop stream if it exists
+		if (stream) {
+		  stream.getTracks().forEach(track => track.stop());
+		}
+		throw error;
+	  }
+	};
+	
+	
+	// Helper function to get stored selfie (you need to implement storage)
+	const getStoredSelfie = async (): Promise<string | null> => {
+	  // This could be from localStorage, state management, or props
+	  // Example using localStorage:
+	  return localStorage.getItem('onboarding-selfie');
+	};
+
+	// Function to store selfie (call this after taking selfie)
+	const storeSelfie = async (selfieDataUrl: string) => {
+	  localStorage.setItem('onboarding-selfie', selfieDataUrl);
+	};
+
+	// Process the document photo after successful face verification
+	const processDocumentPhoto = async (photoDataUrl: string, documentType: keyof OnboardingData['documents']) => {
+	  // Your logic to handle the verified document photo
+	  console.log(`Processing ${documentType} photo`);
+	  
+	  // Update your state or send to backend
+	  // setOnboardingData(prev => ({
+	  //   ...prev,
+	  //   documents: {
+	  //     ...prev.documents,
+	  //     [documentType]: photoDataUrl
+	  //   }
+	  // }));
+	};
+
 
   const handleSubmit = async () => {
     setIsLoading(true)
@@ -182,13 +293,7 @@ export default function TherapistOnboarding() {
             <h1 className="text-lg font-semibold text-white">Therapist Application</h1>
             <p className="text-sm text-gray-300">Complete your profile to start accepting clients</p>
           </div>
-          {/* Demo Fill Button */}
-          <button
-            onClick={handleDemoFill}
-            className="px-3 py-1 text-xs bg-[#71CBD1] text-[#1a2a3a] rounded-lg hover:bg-[#5bb5c1] font-medium transition-colors"
-          >
-            Demo Fill
-          </button>
+          
         </div>
       </div>
 
@@ -233,7 +338,7 @@ export default function TherapistOnboarding() {
             <div className="text-center">
               <h2 className="text-xl font-semibold mb-2 text-white">Identity Verification</h2>
               <p className="text-gray-300">We need to verify your identity to ensure client safety</p>
-              <p className="text-sm text-[#71CBD1] mt-1">DEMO: Only first and last name required</p>
+            
             </div>
 
             {/* Personal Information Form */}
@@ -286,7 +391,7 @@ export default function TherapistOnboarding() {
 
             {/* Document Upload Section */}
             <div className="space-y-4">
-              <h3 className="font-semibold text-white">Upload Documents (Optional for demo)</h3>
+              <h3 className="font-semibold text-white">Upload Documents </h3>
               
               {/* ID Front */}
               <div className="border-2 border-dashed border-[#3a506b] rounded-lg p-4 text-center hover:border-[#71CBD1] transition-colors cursor-pointer">
