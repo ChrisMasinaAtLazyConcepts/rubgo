@@ -1,153 +1,138 @@
-// components/google-map.tsx
 "use client"
 
-import { Therapist } from '@/lib/types';
 import { useEffect, useRef, useState } from 'react'
 
-interface GoogleMapProps {
-  center: { lat: number; lng: number }
-  zoom?: number
-  therapists?: Therapist[]
-  className?: string
+declare global {
+  interface Window {
+    google: any
+    initMap: () => void
+  }
 }
 
-// Simple loading component
-const MapLoading = () => (
-  <div className="w-full h-full bg-gray-200 rounded-lg flex items-center justify-center">
-    <div className="text-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
-      <p className="text-sm text-gray-600">Loading Map...</p>
-    </div>
-  </div>
-)
+interface GoogleMapProps {
+  apiKey: string
+  center?: { lat: number; lng: number }
+  zoom?: number
+  height?: string
+  width?: string
+}
 
 export default function GoogleMap({ 
-  center, 
-  zoom = 12, 
-  therapists = [], 
-  className = "w-full h-full" 
+  apiKey  = 'AIzaSyBp_hrQ6RPWS7CLmKC8bEd-GmbhKIXMLqs', 
+  center = { lat: -34.397, lng: 150.644 }, 
+  zoom = 8,
+  height = '400px',
+  width = '100%'
 }: GoogleMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
-  const [mapLoaded, setMapLoaded] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const API_KEY = "AIzaSyBgtmDrI8g4cW1Tf9nxnwp1Si8KqEdD-XM"
+  const [mapError, setMapError] = useState<string | null>(null)
+  const [isLoaded, setIsLoaded] = useState(false)
+  const scriptLoaded = useRef(false)
 
   useEffect(() => {
-    // Check if we're on client side
+    // Don't run on server side
     if (typeof window === 'undefined') return
-
-    // Load Google Maps script if not already loaded
-    if (!window.google) {
-      const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=geometry,places`
-      script.async = true
-      script.defer = true
-      script.onload = () => {
-        console.log('Google Maps script loaded successfully')
-        setMapLoaded(true)
-      }
-      script.onerror = () => {
-        console.error('Failed to load Google Maps script')
-        setError('Failed to load Google Maps')
-      }
-      document.head.appendChild(script)
-    } else {
+    
+    // Prevent multiple script loads
+    if (scriptLoaded.current) return
+    
+    // Check if Google Maps is already loaded
+    if (window.google && window.google.maps) {
       console.log('Google Maps already loaded')
-      setMapLoaded(true)
-    }
-  }, [])
-
-  useEffect(() => {
-    // Only initialize map when everything is ready
-    if (!mapLoaded || !mapRef.current || typeof window === 'undefined' || !window.google) {
+      initMap()
+      setIsLoaded(true)
       return
     }
 
+    console.log('Loading Google Maps API...')
+    
+    // Load Google Maps API
+    const script = document.createElement('script')
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initMap`
+    script.async = true
+    script.defer = true
+    
+    // Set up callback
+    window.initMap = () => {
+      console.log('Google Maps API loaded successfully')
+      scriptLoaded.current = true
+      setIsLoaded(true)
+      initMap()
+    }
+    
+    script.onerror = (error) => {
+      console.error('Failed to load Google Maps API:', error)
+      setMapError('Failed to load Google Maps. Check your API key.')
+      scriptLoaded.current = false
+    }
+    
+    document.head.appendChild(script)
+    scriptLoaded.current = true
+
+    return () => {
+      // Clean up
+      if (window.initMap) {
+        delete window.initMap
+      }
+    }
+  }, [apiKey])
+
+  const initMap = () => {
     try {
+      if (!mapRef.current || !window.google) {
+        console.warn('Map container or Google not ready')
+        return
+      }
+      
+      console.log('Initializing map...')
       const map = new window.google.maps.Map(mapRef.current, {
         center,
         zoom,
-        disableDefaultUI: true,
-        styles: [
-          {
-            featureType: "poi",
-            elementType: "labels",
-            stylers: [{ visibility: "off" }]
-          },
-          {
-            featureType: "transit",
-            elementType: "labels",
-            stylers: [{ visibility: "off" }]
-          }
-        ]
       })
-
-      // Add simple user location marker
-      new window.google.maps.Marker({
-        position: center,
-        map: map,
-        title: 'Your Location',
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 8,
-          fillColor: '#3B82F6',
-          fillOpacity: 1,
-          strokeColor: '#FFFFFF',
-          strokeWeight: 2,
-        },
-        zIndex: 1000
-      })
-
-      // Add therapist markers
-      therapists.forEach((therapist) => {
-        if (!therapist.location || isNaN(therapist.location.lat) || isNaN(therapist.location.lng)) {
-          return
-        }
-
-        new window.google.maps.Marker({
-          position: therapist.location,
-          map: map,
-          title: therapist.name,
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 6,
-            fillColor: '#10B981',
-            fillOpacity: 1,
-            strokeColor: '#FFFFFF',
-            strokeWeight: 2,
-          },
-        })
-      })
-
-    } catch (err) {
-      console.error('Error initializing map:', err)
-      setError('Error creating map')
+      
+      console.log('Map initialized successfully')
+    } catch (error) {
+      console.error('Error initializing map:', error)
+      setMapError('Error loading map. Please try again.')
     }
-  }, [mapLoaded, center, zoom, therapists])
+  }
 
-  if (error) {
+  // Show error state
+  if (mapError) {
     return (
-      <div className={`${className} bg-red-50 border border-red-200 rounded-lg flex items-center justify-center`}>
-        <div className="text-center text-red-700 p-4">
-          <div className="text-lg font-semibold mb-2">Map Error</div>
-          <div className="text-sm">{error}</div>
+      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded">
+        <p className="text-yellow-800 font-medium">⚠️ Map unavailable</p>
+        <p className="text-yellow-600 text-sm mt-1">{mapError}</p>
+        <button 
+          onClick={() => setMapError(null)}
+          className="mt-2 px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-sm hover:bg-yellow-200"
+        >
+          Try again
+        </button>
+      </div>
+    )
+  }
+
+  // Show loading state
+  if (!isLoaded) {
+    return (
+      <div 
+        className="flex items-center justify-center bg-gray-100"
+        style={{ height, width }}
+      >
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-2 text-sm text-gray-600">Loading map...</p>
         </div>
       </div>
     )
   }
 
-  if (!mapLoaded) {
-    return <MapLoading />
-  }
-
   return (
-    <div className={className}>
-      <div 
-        ref={mapRef} 
-        className="w-full h-full rounded-lg bg-gray-200"
-        style={{ minHeight: '400px' }}
-      />
-    </div>
+    <div 
+      ref={mapRef} 
+      style={{ height, width }}
+      className="rounded-lg overflow-hidden border border-gray-200"
+    />
   )
 }

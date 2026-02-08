@@ -75,6 +75,7 @@ function deg2rad(deg: number) {
 }
 
 export default function HomePage() {
+	
   const { user } = useAuth()
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
@@ -95,6 +96,13 @@ export default function HomePage() {
   const [foundTherapists, setFoundTherapists] = useState(0)
   const [requiredTherapists, setRequiredTherapists] = useState(0)
   const [canConfirmBooking, setCanConfirmBooking] = useState(false)
+
+  const [showSplash, setShowSplash] = useState(true);
+
+  const handleSplashComplete = () => {
+    // Navigate to signup page
+    router.push('/signup');
+  };
 
   // Cart state - unified for both individual and group bookings
   const [cartItems, setCartItems] = useState<Array<{

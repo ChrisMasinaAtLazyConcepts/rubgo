@@ -1,62 +1,60 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useRef, useState } from "react"
+import { motion } from "framer-motion" // ← ADD THIS IMPORT
 import { useAuth } from "@/lib/auth-context"
 import SplashScreen from '@/components/splash-screen'
 
 export default function Page() {
-  const router = useRouter()
-  const { user } = useAuth()
-  const [isLoading, setIsLoading] = useState(true)
+  const { user, isLoading } = useAuth()
+  const hasRedirected = useRef(false)
+  const [showSplash, setShowSplash] = useState(true)
 
-  const handleLoadingComplete = () => {
-    setIsLoading(false)
+  const handleSplashComplete = () => {
+    console.log("✨ Splash screen animation complete")
+    setShowSplash(false)
   }
 
-  // Handle routing after splash screen
   useEffect(() => {
-    if (!isLoading) {
-      if (user) {
-        router.push("/home")
-      } else {
-        router.push("/auth/signup")
-      }
-    }
-  }, [user, isLoading, router])
+    if (showSplash || isLoading) return
+    if (hasRedirected.current) return
+    
+    hasRedirected.current = true
+    console.log("🎯 Redirecting - User:", user ? "Logged in" : "Not logged in")
+    
+    const targetPath = user ? "/home" : "/auth/signup"
+    window.location.replace(targetPath)
+    
+  }, [user, isLoading, showSplash])
 
-  // App initialization
-  useEffect(() => {
-    const initializeApp = async () => {
-      // You can add actual initialization logic here:
-      // - Check authentication status
-      // - Load user preferences
-      // - Initialize analytics
-      // - Check for updates
-      await new Promise(resolve => setTimeout(resolve, 1000))
-    }
-
-    initializeApp()
-  }, [])
+  if (showSplash) {
+    return <SplashScreen onLoadingComplete={handleSplashComplete} duration={2500} />
+  }
 
   return (
-    <>
-      <SplashScreen 
-        onLoadingComplete={handleLoadingComplete}
-        duration={4000}
-      />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+      {/* Spinner Container */}
+      <div className="relative w-16 h-16">
+        {/* Background Circle */}
+        <div className="absolute inset-0 rounded-full border-3 border-gray-200"></div>
+        
+        {/* Animated Spinner Circle - now uses motion.div */}
+        <motion.div
+          className="absolute inset-0 rounded-full border-3 border-green-800 border-t-transparent"
+          initial={{ rotate: 0 }}
+          animate={{ rotate: 360 }}
+          transition={{
+            duration: 1,
+            repeat: Infinity,
+            ease: "linear"
+          }}
+        />
+      </div>
       
-      {/* Optional: You can add a loading state here if needed */}
-      {!isLoading && (
-        <main className="min-h-screen bg-background">
-          {/* This will briefly show before redirect happens */}
-          <div className="flex items-center justify-center min-h-screen">
-            <div className="text-center">
-              <p>Redirecting...</p>
-            </div>
-          </div>
-        </main>
-      )}
-    </>
+      {/* Text below spinner */}
+      <p className="mt-8 text-xl font-semibold text-gray-800">
+        Welcome to RubHub Mobile Spa
+      </p>
+    </div>
   )
 }

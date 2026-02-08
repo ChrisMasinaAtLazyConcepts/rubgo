@@ -675,7 +675,7 @@ export default function SignUpPage() {
                       <div className="space-y-1">
                         <h3 className="font-bold text-lg text-gray-900">Therapist</h3>
                         <p className="text-gray-600 text-sm leading-relaxed">
-                          Join our professional network
+                          Join our elite therapist network
                         </p>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-blue-600">

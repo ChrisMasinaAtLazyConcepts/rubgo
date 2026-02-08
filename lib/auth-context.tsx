@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode, useRef } from "react"
 
 interface User {
   userType: string
@@ -23,15 +23,33 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const hasInitialized = useRef(false) // NEW: Prevent multiple initializations
 
   useEffect(() => {
+    // RUN ONLY ONCE - use ref to track initialization
+    if (hasInitialized.current) return
+    hasInitialized.current = true
+    
+    console.log("🔄 AuthProvider: Checking stored user")
+    
     // Check for stored user session
     const storedUser = localStorage.getItem("dam-safe-user")
     if (storedUser) {
-      setUser(JSON.parse(storedUser))
+      try {
+        setUser(JSON.parse(storedUser))
+      } catch (error) {
+        console.error("Failed to parse stored user:", error)
+        localStorage.removeItem("dam-safe-user")
+      }
     }
-    setIsLoading(false)
-  }, [])
+    
+    // Set loading to false AFTER a small delay
+    const timer = setTimeout(() => {
+      setIsLoading(false)
+    }, 500)
+    
+    return () => clearTimeout(timer)
+  }, []) // EMPTY DEPENDENCY ARRAY = RUNS ONCE
 
   const signIn = async (email: string, password: string) => {
     // Mock authentication - replace with real API call
@@ -41,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: "1",
       email,
       name: email.split("@")[0],
-      userType:'client'
+      userType: 'client'
     }
 
     setUser(mockUser)
@@ -57,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       name,
       phone,
-      userType:'client'
+      userType: 'client'
     }
 
     setUser(mockUser)
@@ -69,7 +87,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("dam-safe-user")
   }
 
-  return <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ 
+      user, 
+      isLoading, 
+      signIn, 
+      signUp, 
+      signOut 
+    }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
