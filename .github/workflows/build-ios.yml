@@ -75,139 +75,60 @@ jobs:
         cd ios/App
         pod install --repo-update
         
-    - name: Build iOS IPA
+    - name: Build iOS IPA with Fastlane
       env:
         DEVELOPER_TEAM_ID: ${{ secrets.DEVELOPER_TEAM_ID }}
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
       run: |
         cd ios/App
         
-        echo "🔧 BUILDING IPA (WORKING METHOD)..."
+        echo "🔧 Using Fastlane for reliable build..."
         
-        # Clean build folder
-        rm -rf build
-        mkdir -p build
+        # Install fastlane
+        gem install fastlane
         
-        # SIMPLE WORKING METHOD: Build .app and create IPA manually
-        echo "🏗️ Building .app file with development team..."
-        
-        # Create xcconfig file with team ID
-        cat > build.xcconfig << EOF
-        DEVELOPMENT_TEAM = $DEVELOPER_TEAM_ID
-        CODE_SIGN_STYLE = Automatic
-        PROVISIONING_PROFILE_SPECIFIER = 
+        # Create a simple Fastfile
+        mkdir -p fastlane
+        cat > fastlane/Fastfile << 'EOF'
+        default_platform(:ios)
+
+        platform :ios do
+          desc "Build iOS app"
+          lane :build_ipa do
+            # Build IPA
+            gym(
+              workspace: "App.xcworkspace",
+              scheme: "App",
+              export_method: "app-store",
+              output_directory: "build",
+              output_name: "App.ipa",
+              clean: true,
+              silent: true,
+              export_options: {
+                provisioningProfiles: {
+                  ENV["BUNDLE_IDENTIFIER"] => ""
+                },
+                signingStyle: "automatic"
+              }
+            )
+          end
+        end
         EOF
         
-        # Build the app (not archive)
-        xcodebuild clean build \
-          -workspace App.xcworkspace \
-          -scheme App \
-          -configuration Release \
-          -destination 'generic/platform=iOS' \
-          -allowProvisioningUpdates \
-          -xcconfig build.xcconfig \
-          -quiet
+        # Set environment variables
+        export BUNDLE_IDENTIFIER="za.co.rubhub.yourapp"  # CHANGE THIS TO YOUR BUNDLE ID
         
-        # Find the built .app file
-        echo "🔍 Searching for .app file..."
+        # Run fastlane
+        fastlane ios build_ipa
         
-        # Check common locations
-        APP_FILE=""
-        
-        # Location 1: DerivedData
-        if [ -z "$APP_FILE" ]; then
-          APP_FILE=$(find ~/Library/Developer/Xcode/DerivedData -name "App.app" -type d 2>/dev/null | head -1)
-        fi
-        
-        # Location 2: Build folder
-        if [ -z "$APP_FILE" ]; then
-          APP_FILE=$(find . -name "App.app" -type d | head -1)
-        fi
-        
-        # Location 3: Any .app file
-        if [ -z "$APP_FILE" ]; then
-          APP_FILE=$(find . -name "*.app" -type d | head -1)
-        fi
-        
-        if [ -z "$APP_FILE" ]; then
-          echo "❌ No .app file found!"
-          echo "📁 Current directory: $(pwd)"
-          echo "📁 Searching for .app files:"
-          find . -name "*.app" -type d 2>/dev/null
-          exit 1
-        fi
-        
-        echo "✅ Found .app file: $APP_FILE"
-        
-        # Create IPA manually
-        echo "📦 Creating IPA from .app file..."
-        
-        # Clean Payload if exists
-        rm -rf Payload
-        
-        # Create Payload folder and copy .app
-        mkdir -p Payload
-        cp -r "$APP_FILE" Payload/
-        
-        # Create IPA
-        zip -qr build/App.ipa Payload
-        
-        # Clean up
-        rm -rf Payload
-        
-        echo "✅ IPA created: build/App.ipa"
-        ls -lh build/App.ipa
-        
-        # Verify it's a valid IPA
+        # Check result
         if [ -f "build/App.ipa" ]; then
-          echo "🎉 Build successful!"
-          echo "📊 IPA file size: $(du -h build/App.ipa | cut -f1)"
+          echo "✅ Fastlane created IPA: build/App.ipa"
+          ls -lh build/App.ipa
         else
-          echo "❌ IPA creation failed"
+          echo "❌ Fastlane failed"
           exit 1
-        fi
-        
-    - name: Upload IPA artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ios-ipa
-        path: ios/App/build/App.ipa
-        retention-days: 7
-  
-  upload-to-testflight:
-    runs-on: ubuntu-latest
-    needs: build-ios
-    
-    steps:
-    - name: Download IPA artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: ios-ipa
-        
-    - name: Setup Fastlane
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: '3.2'
-        
-    - name: Install Fastlane
-      run: gem install fastlane -N
-        
-    - name: Verify IPA exists
-      run: |
-        echo "📦 Looking for IPA..."
-        find . -name "*.ipa" -type f
-        
-        # Move IPA to root
-        if [ -f "App.ipa" ]; then
-          echo "✅ Found App.ipa"
-        else
-          # Download artifact puts it in current directory
-          mv *.ipa App.ipa 2>/dev/null || true
-          if [ -f "App.ipa" ]; then
-            echo "✅ Renamed IPA to App.ipa"
-          else
-            echo "❌ No IPA found!"
-            exit 1
-          fi
         fi
         
     - name: Upload to TestFlight
