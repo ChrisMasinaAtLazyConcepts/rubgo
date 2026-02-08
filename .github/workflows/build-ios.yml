@@ -1,33 +1,132 @@
-name: Upload to TestFlight
+name: Build Android APK
 
 on:
   workflow_dispatch:
   push:
     branches: [master]
 
+env:
+  NODE_VERSION: '20'
+  NPM_LEGACY_PEER_DEPS: 'true'
+
 jobs:
-  upload-ios:
+  build-android:
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Setup Fastlane
-      uses: ruby/setup-ruby@v1
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
       with:
-        ruby-version: '3.2'  # ← FIX: Add Ruby version here
-        bundler-cache: true  # Optional: cache gems for faster runs
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
         
-    - name: Install Fastlane
-      run: gem install fastlane -N
-        
-    - name: Upload to TestFlight
-      env:
-        APPLE_ID: ${{ secrets.APPLE_ID }}
-        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+    - name: Install dependencies
       run: |
-        fastlane pilot upload \
-          --ipa "path/to/your/app.ipa" \
-          --username "$APPLE_ID" \
-          --app_identifier "za.co.rubhub.app"
+        npm ci --legacy-peer-deps
+        npm install @capacitor/core @capacitor/cli @capacitor/android --legacy-peer-deps
+        
+    - name: Build Next.js app
+      run: |
+        echo "Current directory structure:"
+        ls -la
+        
+        echo "Checking Next.js config..."
+        if [ -f "next.config.js" ]; then
+          echo "✅ next.config.js found"
+          cat next.config.js | head -20
+        else
+          echo "❌ next.config.js not found!"
+          exit 1
+        fi
+        
+        echo "Running Next.js build..."
+        npm run build
+        
+        echo "Checking build output..."
+        # Check if dist folder was created
+        if [ -d "dist" ]; then
+          echo "✅ dist folder found"
+          ls -la dist/
+          if [ -f "dist/index.html" ]; then
+            echo "✅ index.html found in dist/"
+            echo "Build successful!"
+          else
+            echo "❌ No index.html in dist/"
+            echo "Contents of dist/:"
+            ls -la dist/ || echo "dist/ exists but cannot list"
+            exit 1
+          fi
+        elif [ -d "out" ]; then
+          echo "✅ out folder found (Next.js default export)"
+          ls -la out/
+          # Move out to dist for Capacitor
+          mv out dist
+          echo "Renamed 'out' to 'dist' for Capacitor"
+        else
+          echo "❌ No dist or out folder created!"
+          echo "Trying to find any HTML files..."
+          find . -name "*.html" -type f | head -10
+          exit 1
+        fi
+        
+    - name: Setup Android
+      run: |
+        # Install Android SDK
+        sudo apt-get update
+        sudo apt-get install -y openjdk-17-jdk
+        
+        # Set Java environment
+        echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+        
+        # Install Android SDK components
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        mkdir -p android-sdk/cmdline-tools
+        unzip -q commandlinetools-linux-9477386_latest.zip -d android-sdk/cmdline-tools
+        mv android-sdk/cmdline-tools/cmdline-tools android-sdk/cmdline-tools/latest
+        
+        # Set Android SDK environment variables
+        echo "ANDROID_SDK_ROOT=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
+        echo "PATH=$GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin:$GITHUB_WORKSPACE/android-sdk/platform-tools:$PATH" >> $GITHUB_ENV
+        
+        # Accept licenses
+        yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+        
+        # Install required SDK packages
+        android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+        
+    - name: Setup Capacitor Android
+      run: |
+        # Clean previous Android platform if exists
+        rm -rf android
+        
+        # Add Android platform
+        npx cap add android
+        
+        # Sync web assets to Android
+        npx cap sync android
+        
+    - name: Build Android APK
+      run: |
+        cd android
+        
+        # Build debug APK
+        ./gradlew assembleDebug
+        
+        # Check if APK was created
+        if [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+          echo "✅ APK built successfully!"
+          ls -lh app/build/outputs/apk/debug/
+        else
+          echo "❌ APK build failed!"
+          exit 1
+        fi
+        
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-apk
+        path: android/app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 7
