@@ -78,54 +78,88 @@ jobs:
     - name: Build iOS IPA
       env:
         DEVELOPER_TEAM_ID: ${{ secrets.DEVELOPER_TEAM_ID }}
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
       run: |
         cd ios/App
         
-        # Create export options plist
-        echo '<?xml version="1.0" encoding="UTF-8"?>' > exportOptions.plist
-        echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> exportOptions.plist
-        echo '<plist version="1.0">' >> exportOptions.plist
-        echo '<dict>' >> exportOptions.plist
-        echo '    <key>compileBitcode</key>' >> exportOptions.plist
-        echo '    <false/>' >> exportOptions.plist
-        echo '    <key>destination</key>' >> exportOptions.plist
-        echo '    <string>export</string>' >> exportOptions.plist
-        echo '    <key>method</key>' >> exportOptions.plist
-        echo '    <string>app-store</string>' >> exportOptions.plist
-        echo '    <key>signingStyle</key>' >> exportOptions.plist
-        echo '    <string>automatic</string>' >> exportOptions.plist
-        echo '    <key>stripSwiftSymbols</key>' >> exportOptions.plist
-        echo '    <true/>' >> exportOptions.plist
-        echo '    <key>teamID</key>' >> exportOptions.plist
-        echo "    <string>$DEVELOPER_TEAM_ID</string>" >> exportOptions.plist
-        echo '</dict>' >> exportOptions.plist
-        echo '</plist>' >> exportOptions.plist
+        echo "🔧 Setting up code signing..."
         
-        echo "🧹 Cleaning build..."
-        xcodebuild clean -workspace App.xcworkspace -scheme App
+        # 1. Configure Xcode project for automatic signing
+        /usr/libexec/PlistBuddy -c "Set :objects:8C4830BB246B8D1600170895:buildSettings:DEVELOPMENT_TEAM $DEVELOPER_TEAM_ID" project.pbxproj
+        /usr/libexec/PlistBuddy -c "Set :objects:8C4830BB246B8D1600170895:buildSettings:PROVISIONING_PROFILE_SPECIFIER ''" project.pbxproj
+        /usr/libexec/PlistBuddy -c "Set :objects:8C4830BB246B8D1600170895:buildSettings:CODE_SIGN_STYLE Automatic" project.pbxproj
         
-        echo "🏗️ Archiving app..."
+        # 2. Create a simple build script to handle signing
+        cat > build_ipa.sh << 'BUILD_EOF'
+        #!/bin/bash
+        
+        # Create export options
+        cat > exportOptions.plist << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>compileBitcode</key>
+            <false/>
+            <key>destination</key>
+            <string>export</string>
+            <key>method</key>
+            <string>app-store</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>stripSwiftSymbols</key>
+            <true/>
+            <key>teamID</key>
+            <string>$DEVELOPER_TEAM_ID</string>
+            <key>thinning</key>
+            <string>&lt;none&gt;</string>
+        </dict>
+        </plist>
+        EOF
+        
+        # Clean build folder
+        rm -rf build
+        
+        # Archive with automatic signing
         xcodebuild archive \
           -workspace App.xcworkspace \
           -scheme App \
           -configuration Release \
-          -archivePath build/App.xcarchive \
+          -archivePath build/App.xcworkspace \
           -destination 'generic/platform=iOS' \
           -allowProvisioningUpdates \
-          DEVELOPMENT_TEAM="$DEVELOPER_TEAM_ID"
+          DEVELOPMENT_TEAM="$DEVELOPER_TEAM_ID" \
+          CODE_SIGN_STYLE="Automatic" \
+          PROVISIONING_PROFILE_SPECIFIER="" \
+          CODE_SIGN_IDENTITY="Apple Distribution"
         
-        echo "📦 Exporting IPA..."
+        # Export IPA
         xcodebuild -exportArchive \
-          -archivePath build/App.xcarchive \
+          -archivePath build/App.xcworkspace \
           -exportOptionsPlist exportOptions.plist \
           -exportPath build \
           -allowProvisioningUpdates
+        BUILD_EOF
         
+        chmod +x build_ipa.sh
+        
+        echo "🏗️ Building IPA with automatic signing..."
+        ./build_ipa.sh
+        
+        # Check if IPA was created
         if [ -f "build/App.ipa" ]; then
-          echo "✅ IPA created: build/App.ipa"
+          echo "✅ IPA created successfully!"
           ls -lh build/App.ipa
+          
+          # Also check for other possible IPA locations
+          echo "📁 Build folder contents:"
+          find build -name "*.ipa" -type f
         else
-          echo "❌ IPA creation failed"
+          echo "❌ IPA not found in expected location"
+          echo "📁 Searching for IPA files..."
+          find . -name "*.ipa" -type f
+          echo "📁 Build folder:"
           ls -la build/
           exit 1
         fi
