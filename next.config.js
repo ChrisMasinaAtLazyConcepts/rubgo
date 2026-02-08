@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Uncomment this ONLY if doing a static export
-  // output: 'export',
+   output: 'export',
   
   trailingSlash: true,
   distDir: 'dist',
