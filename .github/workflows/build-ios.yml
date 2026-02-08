@@ -35,19 +35,22 @@ jobs:
         # Check Next.js config
         if ! grep -q "output.*export" next.config.js 2>/dev/null; then
           echo "⚠️ Adding output: 'export' to next.config.js"
-          cat > next.config.js << 'EOF'
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  output: 'export',
-  trailingSlash: true,
-  images: { unoptimized: true },
-  reactStrictMode: false,
-  typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true },
-}
-
-module.exports = nextConfig
-EOF
+          
+          # FIXED: Use simpler echo commands instead of EOF heredoc
+          echo '/** @type {import('"'"'next'"'"').NextConfig} */' > next.config.js
+          echo 'const nextConfig = {' >> next.config.js
+          echo '  output: '"'"'export'"'"',' >> next.config.js
+          echo '  trailingSlash: true,' >> next.config.js
+          echo '  images: { unoptimized: true },' >> next.config.js
+          echo '  reactStrictMode: false,' >> next.config.js
+          echo '  typescript: { ignoreBuildErrors: true },' >> next.config.js
+          echo '  eslint: { ignoreDuringBuilds: true },' >> next.config.js
+          echo '}' >> next.config.js
+          echo '' >> next.config.js
+          echo 'module.exports = nextConfig' >> next.config.js
+          
+          echo "✅ Updated next.config.js"
+          cat next.config.js
         fi
         
         npm run build
@@ -141,7 +144,7 @@ EOF
         ls -la
         
         # Create export options
-        cat > exportOptions.plist << EOF
+        cat > exportOptions.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
