@@ -1,80 +1,3 @@
-name: Build iOS and Upload to TestFlight
-
-on:
-  workflow_dispatch:
-  push:
-    branches: [master]
-
-env:
-  NODE_VERSION: '20'
-  NPM_LEGACY_PEER_DEPS: 'true'
-
-jobs:
-  build-ios:
-    runs-on: macos-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-        
-    - name: Install dependencies
-      run: |
-        npm ci --legacy-peer-deps
-        npm install @capacitor/core @capacitor/cli @capacitor/ios --legacy-peer-deps
-        
-    - name: Build Next.js app
-      run: |
-        echo "🚀 Building Next.js app..."
-        
-        # Create next.config.js with static export
-        echo 'module.exports = {' > next.config.js
-        echo '  output: "export",' >> next.config.js
-        echo '  trailingSlash: true,' >> next.config.js
-        echo '  images: { unoptimized: true },' >> next.config.js
-        echo '  reactStrictMode: false,' >> next.config.js
-        echo '  typescript: { ignoreBuildErrors: true },' >> next.config.js
-        echo '  eslint: { ignoreDuringBuilds: true },' >> next.config.js
-        echo '}' >> next.config.js
-        
-        npm run build
-        
-        # Verify build
-        if [ -f "out/index.html" ] || [ -f "dist/index.html" ]; then
-          echo "✅ Next.js build successful"
-          if [ -f "out/index.html" ]; then
-            mkdir -p dist
-            cp -r out/* dist/
-          fi
-        else
-          echo "❌ Next.js build failed"
-          exit 1
-        fi
-        
-    - name: Setup iOS platform
-      run: |
-        # Clean up previous iOS platform
-        rm -rf ios
-        
-        # Add iOS platform
-        npx cap add ios
-        
-        # Configure iOS minimum version
-        npx cap config set ios.minVersion 15.0
-        
-        # Sync web assets
-        npx cap sync ios
-        
-    - name: Install CocoaPods
-      run: |
-        cd ios/App
-        pod install --repo-update
-        
     - name: Build iOS IPA
       env:
         DEVELOPER_TEAM_ID: ${{ secrets.DEVELOPER_TEAM_ID }}
@@ -83,211 +6,173 @@ jobs:
         
         echo "🔧 Setting up Xcode project for automatic signing..."
         
-        # 1. FIRST, verify the Xcode project structure
-        echo "📁 Checking Xcode project structure..."
-        if [ -f "App.xcodeproj/project.pbxproj" ]; then
-          echo "✅ Found project.pbxproj"
-          # Backup the original
-          cp App.xcodeproj/project.pbxproj App.xcodeproj/project.pbxproj.backup
-        else
-          echo "❌ project.pbxproj not found!"
-          echo "📁 Current directory contents:"
-          pwd
-          ls -la
-          echo "📁 App.xcodeproj contents:"
-          ls -la App.xcodeproj/ 2>/dev/null || echo "No App.xcodeproj folder"
-          exit 1
-        fi
+        # 1. Configure signing using xcrun instead of sed
+        echo "⚙️ Configuring code signing with xcrun..."
         
-        # 2. Configure automatic signing using sed (simpler and more reliable)
-        echo "⚙️ Configuring automatic signing..."
-        
-        # Enable automatic signing
-        sed -i.bak 's/ProvisioningStyle = Manual;/ProvisioningStyle = Automatic;/g' App.xcodeproj/project.pbxproj
-        
-        # Set development team
-        sed -i.bak "s/DEVELOPMENT_TEAM = \"\";/DEVELOPMENT_TEAM = \"$DEVELOPER_TEAM_ID\";/g" App.xcodeproj/project.pbxproj
-        
-        # Set code signing identity
-        sed -i.bak 's/CODE_SIGN_IDENTITY = "";/CODE_SIGN_IDENTITY = "Apple Distribution";/g' App.xcodeproj/project.pbxproj
-        sed -i.bak 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "Apple Distribution";/g' App.xcodeproj/project.pbxproj
-        
-        echo "✅ Xcode project configured for automatic signing"
-        
-        # 3. Create export options - FIXED: Use echo instead of EOF
-        echo "📦 Creating export options..."
-        echo '<?xml version="1.0" encoding="UTF-8"?>' > exportOptions.plist
-        echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> exportOptions.plist
-        echo '<plist version="1.0">' >> exportOptions.plist
-        echo '<dict>' >> exportOptions.plist
-        echo '    <key>compileBitcode</key>' >> exportOptions.plist
-        echo '    <false/>' >> exportOptions.plist
-        echo '    <key>destination</key>' >> exportOptions.plist
-        echo '    <string>export</string>' >> exportOptions.plist
-        echo '    <key>method</key>' >> exportOptions.plist
-        echo '    <string>app-store</string>' >> exportOptions.plist
-        echo '    <key>signingStyle</key>' >> exportOptions.plist
-        echo '    <string>automatic</string>' >> exportOptions.plist
-        echo '    <key>stripSwiftSymbols</key>' >> exportOptions.plist
-        echo '    <true/>' >> exportOptions.plist
-        echo "    <key>teamID</key>" >> exportOptions.plist
-        echo "    <string>$DEVELOPER_TEAM_ID</string>" >> exportOptions.plist
-        echo '    <key>thinning</key>' >> exportOptions.plist
-        echo '    <string>&lt;none&gt;</string>' >> exportOptions.plist
-        echo '</dict>' >> exportOptions.plist
-        echo '</plist>' >> exportOptions.plist
-        
-        echo "🧹 Cleaning previous builds..."
-        # Clean any previous builds
+        # Clean build folder
         rm -rf build
         mkdir -p build
         
-        # 4. Build archive with automatic signing
-        echo "🏗️ Archiving app..."
+        # Create export options
+        echo "📦 Creating export options..."
+        cat > exportOptions.plist << 'EXPORT_EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>app-store</string>
+    <key>teamID</key>
+    <string>$DEVELOPER_TEAM_ID</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+</dict>
+</plist>
+EXPORT_EOF
+        
+        # 2. Try to build with simple xcodebuild command
+        echo "🏗️ Building archive (attempt 1)..."
+        
+        # First, clean
+        xcodebuild clean \
+          -workspace App.xcworkspace \
+          -scheme App \
+          -configuration Release \
+          -quiet || echo "Clean may have warnings"
+        
+        # Build archive with automatic signing enabled
         xcodebuild archive \
           -workspace App.xcworkspace \
           -scheme App \
           -configuration Release \
-          -archivePath build/App.xcarchive \
+          -archivePath build/App \
           -destination 'generic/platform=iOS' \
           -allowProvisioningUpdates \
-          DEVELOPMENT_TEAM="$DEVELOPER_TEAM_ID" \
           CODE_SIGN_STYLE="Automatic" \
-          PROVISIONING_PROFILE_SPECIFIER="" \
-          CODE_SIGN_IDENTITY="Apple Distribution" \
           -quiet
         
-        # Check if archive was created
+        # 3. If that fails, try alternative method
         if [ ! -d "build/App.xcarchive" ]; then
-          echo "⚠️ Archive not created, trying alternative method..."
+          echo "⚠️ First attempt failed, trying manual method..."
           
-          # Try without specifying identity
-          xcodebuild archive \
-            -workspace App.xcworkspace \
-            -scheme App \
-            -configuration Release \
-            -archivePath build/App.xcarchive \
-            -destination 'generic/platform=iOS' \
-            -allowProvisioningUpdates \
-            -quiet
+          # Create a simple build script
+          cat > build_app.sh << 'SCRIPT_EOF'
+#!/bin/bash
+set -e
+
+# Enable automatic signing in project
+/usr/libexec/PlistBuddy -c "Delete :objects:*:buildSettings:DEVELOPMENT_TEAM" App.xcodeproj/project.pbxproj 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Add :objects:*:buildSettings:DEVELOPMENT_TEAM string $DEVELOPER_TEAM_ID" App.xcodeproj/project.pbxproj
+/usr/libexec/PlistBuddy -c "Set :objects:*:buildSettings:CODE_SIGN_STYLE Automatic" App.xcodeproj/project.pbxproj
+/usr/libexec/PlistBuddy -c "Set :objects:*:buildSettings:PROVISIONING_PROFILE_SPECIFIER ''" App.xcodeproj/project.pbxproj
+
+# Build
+xcodebuild archive \
+  -workspace App.xcworkspace \
+  -scheme App \
+  -configuration Release \
+  -archivePath build/App \
+  -destination 'generic/platform=iOS' \
+  -allowProvisioningUpdates \
+  CODE_SIGN_STYLE="Automatic" \
+  DEVELOPMENT_TEAM="$DEVELOPER_TEAM_ID"
+
+# Export
+xcodebuild -exportArchive \
+  -archivePath build/App.xcarchive \
+  -exportOptionsPlist exportOptions.plist \
+  -exportPath build \
+  -allowProvisioningUpdates
+SCRIPT_EOF
+          
+          chmod +x build_app.sh
+          ./build_app.sh
         fi
         
+        # 4. If still failing, try with gym (fastlane)
         if [ ! -d "build/App.xcarchive" ]; then
-          echo "❌ Archive creation failed"
-          echo "📁 Build folder contents:"
-          ls -la build/
-          exit 1
+          echo "⚠️ Second attempt failed, trying with fastlane..."
+          
+          # Install fastlane if not present
+          gem install fastlane 2>/dev/null || true
+          
+          # Create a simple Fastfile
+          mkdir -p fastlane
+          cat > fastlane/Fastfile << 'FASTLANE_EOF'
+default_platform(:ios)
+
+platform :ios do
+  desc "Build iOS app"
+  lane :build do
+    gym(
+      workspace: "App.xcworkspace",
+      scheme: "App",
+      export_method: "app-store",
+      output_directory: "build",
+      output_name: "App.ipa",
+      silent: true,
+      clean: true
+    )
+  end
+end
+FASTLANE_EOF
+          
+          # Run fastlane
+          fastlane ios build || echo "Fastlane may have warnings"
         fi
         
-        echo "✅ Archive created successfully"
-        
-        # 5. Export IPA
-        echo "📤 Exporting IPA..."
-        xcodebuild -exportArchive \
-          -archivePath build/App.xcarchive \
-          -exportOptionsPlist exportOptions.plist \
-          -exportPath build \
-          -allowProvisioningUpdates \
-          -quiet
-        
-        # 6. Check for IPA in multiple possible locations
+        # 5. Check for IPA in various locations
         echo "🔍 Looking for IPA file..."
         
-        IPA_FOUND=false
+        # Search for IPA
+        IPA_FILE=""
+        POSSIBLE_PATHS=(
+          "build/App.ipa"
+          "build/*.ipa"
+          "*.ipa"
+          "App.ipa"
+        )
         
-        # Check common IPA locations
-        if [ -f "build/App.ipa" ]; then
-          echo "✅ IPA found: build/App.ipa"
-          ls -lh build/App.ipa
-          IPA_FOUND=true
-        fi
+        for path in "${POSSIBLE_PATHS[@]}"; do
+          if ls $path 1>/dev/null 2>&1; then
+            IPA_FILE=$(ls $path | head -1)
+            break
+          fi
+        done
         
-        if [ -f "build/App.xcarchive/Products/Applications/App.app" ]; then
-          echo "ℹ️ Found .app file, creating IPA manually..."
-          mkdir -p Payload
-          cp -r build/App.xcarchive/Products/Applications/App.app Payload/
-          zip -qr build/App.ipa Payload
-          rm -rf Payload
-          echo "✅ Created IPA manually: build/App.ipa"
-          ls -lh build/App.ipa
-          IPA_FOUND=true
-        fi
-        
-        # Search for any .ipa file
-        if [ "$IPA_FOUND" = false ]; then
-          echo "🔎 Searching for any .ipa file..."
-          FOUND_IPA=$(find . -name "*.ipa" -type f | head -1)
-          if [ -n "$FOUND_IPA" ]; then
-            echo "✅ Found IPA: $FOUND_IPA"
-            # Copy to standard location
-            cp "$FOUND_IPA" build/App.ipa
-            ls -lh build/App.ipa
-            IPA_FOUND=true
+        # 6. If no IPA found, create from .app file
+        if [ -z "$IPA_FILE" ]; then
+          echo "🔍 No IPA found, checking for .app file..."
+          
+          if [ -d "build/App.xcarchive/Products/Applications/App.app" ]; then
+            echo "📦 Creating IPA from .app file..."
+            mkdir -p Payload
+            cp -r build/App.xcarchive/Products/Applications/App.app Payload/
+            zip -qr build/App.ipa Payload
+            rm -rf Payload
+            IPA_FILE="build/App.ipa"
+            echo "✅ Created IPA from .app file"
           fi
         fi
         
-        if [ "$IPA_FOUND" = false ]; then
-          echo "❌ No IPA file created!"
-          echo "📁 Build folder contents:"
-          ls -la build/
-          echo "📁 Searching all files..."
-          find . -name "*.ipa" -type f
+        # 7. Final check
+        if [ -n "$IPA_FILE" ] && [ -f "$IPA_FILE" ]; then
+          echo "✅ IPA created successfully: $IPA_FILE"
+          ls -lh "$IPA_FILE"
+          
+          # Ensure it's in the standard location
+          if [ "$IPA_FILE" != "ios/App/build/App.ipa" ]; then
+            mkdir -p build
+            cp "$IPA_FILE" build/App.ipa
+            echo "📦 Moved IPA to standard location: build/App.ipa"
+            ls -lh build/App.ipa
+          fi
+        else
+          echo "❌ IPA creation failed!"
+          echo "📁 Current directory: $(pwd)"
+          echo "📁 Contents:"
+          ls -la
+          echo "📁 Build folder:"
+          ls -la build/ 2>/dev/null || echo "No build folder"
           exit 1
         fi
-        
-        echo "🎉 IPA build completed successfully!"
-        
-    - name: Upload IPA artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ios-ipa
-        path: ios/App/build/App.ipa
-        retention-days: 7
-  
-  upload-to-testflight:
-    runs-on: ubuntu-latest
-    needs: build-ios
-    
-    steps:
-    - name: Download IPA artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: ios-ipa
-        
-    - name: Setup Fastlane
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: '3.2'
-        
-    - name: Install Fastlane
-      run: gem install fastlane -N
-        
-    - name: Verify IPA exists
-      run: |
-        echo "📦 Looking for IPA..."
-        find . -name "*.ipa" -type f
-        
-        # Move IPA to root
-        if [ -f "App.ipa" ]; then
-          echo "✅ Found App.ipa"
-        else
-          # Download artifact puts it in current directory
-          mv *.ipa App.ipa 2>/dev/null || true
-          if [ -f "App.ipa" ]; then
-            echo "✅ Renamed IPA to App.ipa"
-          else
-            echo "❌ No IPA found!"
-            exit 1
-          fi
-        fi
-        
-    - name: Upload to TestFlight
-      env:
-        APPLE_ID: ${{ secrets.APPLE_ID }}
-        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-      run: |
-        fastlane pilot upload \
-          --ipa "App.ipa" \
-          --username "$APPLE_ID" \
-          --app_identifier "za.co.rubhub.yourapp" \
-          --skip_waiting_for_build_processing true
