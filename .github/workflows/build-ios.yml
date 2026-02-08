@@ -1,3 +1,80 @@
+name: Build iOS and Upload to TestFlight
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+
+env:
+  NODE_VERSION: '20'
+  NPM_LEGACY_PEER_DEPS: 'true'
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        npm ci --legacy-peer-deps
+        npm install @capacitor/core @capacitor/cli @capacitor/ios --legacy-peer-deps
+        
+    - name: Build Next.js app
+      run: |
+        echo "🚀 Building Next.js app..."
+        
+        # Create next.config.js with static export
+        echo 'module.exports = {' > next.config.js
+        echo '  output: "export",' >> next.config.js
+        echo '  trailingSlash: true,' >> next.config.js
+        echo '  images: { unoptimized: true },' >> next.config.js
+        echo '  reactStrictMode: false,' >> next.config.js
+        echo '  typescript: { ignoreBuildErrors: true },' >> next.config.js
+        echo '  eslint: { ignoreDuringBuilds: true },' >> next.config.js
+        echo '}' >> next.config.js
+        
+        npm run build
+        
+        # Verify build
+        if [ -f "out/index.html" ] || [ -f "dist/index.html" ]; then
+          echo "✅ Next.js build successful"
+          if [ -f "out/index.html" ]; then
+            mkdir -p dist
+            cp -r out/* dist/
+          fi
+        else
+          echo "❌ Next.js build failed"
+          exit 1
+        fi
+        
+    - name: Setup iOS platform
+      run: |
+        # Clean up previous iOS platform
+        rm -rf ios
+        
+        # Add iOS platform
+        npx cap add ios
+        
+        # Configure iOS minimum version
+        npx cap config set ios.minVersion 15.0
+        
+        # Sync web assets
+        npx cap sync ios
+        
+    - name: Install CocoaPods
+      run: |
+        cd ios/App
+        pod install --repo-update
+        
     - name: Build iOS IPA
       env:
         DEVELOPER_TEAM_ID: ${{ secrets.DEVELOPER_TEAM_ID }}
@@ -12,43 +89,22 @@
         # Backup the project file
         cp App.xcodeproj/project.pbxproj App.xcodeproj/project.pbxproj.backup
         
-        # Use Python to properly parse and update the project file (more reliable)
-        cat > fix_signing.py << 'PYTHON_EOF'
-import plistlib
-import re
-import sys
-
-# Read the project.pbxproj file
-with open('App.xcodeproj/project.pbxproj', 'r') as f:
-    content = f.read()
-
-# Development team ID from environment
-team_id = sys.argv[1]
-
-# Find and replace DEVELOPMENT_TEAM
-# Pattern: DEVELOPMENT_TEAM = "";
-content = re.sub(r'DEVELOPMENT_TEAM\s*=\s*"";', f'DEVELOPMENT_TEAM = "{team_id}";', content)
-
-# Set CODE_SIGN_STYLE to Automatic
-content = re.sub(r'CODE_SIGN_STYLE\s*=\s*".*?";', 'CODE_SIGN_STYLE = "Automatic";', content)
-
-# Set PROVISIONING_PROFILE_SPECIFIER to empty
-content = re.sub(r'PROVISIONING_PROFILE_SPECIFIER\s*=\s*".*?";', 'PROVISIONING_PROFILE_SPECIFIER = "";', content)
-
-# Write back
-with open('App.xcodeproj/project.pbxproj', 'w') as f:
-    f.write(content)
-
-print("✅ Updated Xcode project with team ID:", team_id)
-PYTHON_EOF
+        # Use sed to update the project file
+        echo "🛠️ Setting DEVELOPMENT_TEAM..."
+        sed -i.bak "s/DEVELOPMENT_TEAM = \"\";/DEVELOPMENT_TEAM = \"$DEVELOPER_TEAM_ID\";/g" App.xcodeproj/project.pbxproj
         
-        # Run the Python script
-        python3 fix_signing.py "$DEVELOPER_TEAM_ID"
+        echo "🛠️ Setting CODE_SIGN_STYLE to Automatic..."
+        sed -i.bak 's/CODE_SIGN_STYLE = ".*";/CODE_SIGN_STYLE = "Automatic";/g' App.xcodeproj/project.pbxproj
+        
+        echo "🛠️ Clearing PROVISIONING_PROFILE_SPECIFIER..."
+        sed -i.bak 's/PROVISIONING_PROFILE_SPECIFIER = ".*";/PROVISIONING_PROFILE_SPECIFIER = "";/g' App.xcodeproj/project.pbxproj
         
         # Verify the changes
-        echo "🔍 Verifying changes in project.pbxproj..."
-        grep -n "DEVELOPMENT_TEAM" App.xcodeproj/project.pbxproj | head -5
-        grep -n "CODE_SIGN_STYLE" App.xcodeproj/project.pbxproj | head -5
+        echo "🔍 Verifying changes..."
+        echo "DEVELOPMENT_TEAM:"
+        grep "DEVELOPMENT_TEAM" App.xcodeproj/project.pbxproj || echo "Not found"
+        echo "CODE_SIGN_STYLE:"
+        grep "CODE_SIGN_STYLE" App.xcodeproj/project.pbxproj || echo "Not found"
         
         # 2. Clean build folder
         echo "🧹 Cleaning build folder..."
@@ -57,22 +113,20 @@ PYTHON_EOF
         
         # 3. Create export options
         echo "📦 Creating export options..."
-        cat > exportOptions.plist << 'PLIST_EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>method</key>
-    <string>app-store</string>
-    <key>teamID</key>
-    <string>$DEVELOPER_TEAM_ID</string>
-    <key>signingStyle</key>
-    <string>automatic</string>
-    <key>compileBitcode</key>
-    <false/>
-</dict>
-</plist>
-PLIST_EOF
+        echo '<?xml version="1.0" encoding="UTF-8"?>' > exportOptions.plist
+        echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> exportOptions.plist
+        echo '<plist version="1.0">' >> exportOptions.plist
+        echo '<dict>' >> exportOptions.plist
+        echo '    <key>method</key>' >> exportOptions.plist
+        echo '    <string>app-store</string>' >> exportOptions.plist
+        echo '    <key>teamID</key>' >> exportOptions.plist
+        echo "    <string>$DEVELOPER_TEAM_ID</string>" >> exportOptions.plist
+        echo '    <key>signingStyle</key>' >> exportOptions.plist
+        echo '    <string>automatic</string>' >> exportOptions.plist
+        echo '    <key>compileBitcode</key>' >> exportOptions.plist
+        echo '    <false/>' >> exportOptions.plist
+        echo '</dict>' >> exportOptions.plist
+        echo '</plist>' >> exportOptions.plist
         
         # 4. Build archive WITH DEVELOPMENT_TEAM parameter
         echo "🏗️ Building archive..."
@@ -148,3 +202,58 @@ PLIST_EOF
         fi
         
         echo "🎉 Build completed successfully!"
+        
+    - name: Upload IPA artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ios-ipa
+        path: ios/App/build/App.ipa
+        retention-days: 7
+  
+  upload-to-testflight:
+    runs-on: ubuntu-latest
+    needs: build-ios
+    
+    steps:
+    - name: Download IPA artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ios-ipa
+        
+    - name: Setup Fastlane
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.2'
+        
+    - name: Install Fastlane
+      run: gem install fastlane -N
+        
+    - name: Verify IPA exists
+      run: |
+        echo "📦 Looking for IPA..."
+        find . -name "*.ipa" -type f
+        
+        # Move IPA to root
+        if [ -f "App.ipa" ]; then
+          echo "✅ Found App.ipa"
+        else
+          # Download artifact puts it in current directory
+          mv *.ipa App.ipa 2>/dev/null || true
+          if [ -f "App.ipa" ]; then
+            echo "✅ Renamed IPA to App.ipa"
+          else
+            echo "❌ No IPA found!"
+            exit 1
+          fi
+        fi
+        
+    - name: Upload to TestFlight
+      env:
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      run: |
+        fastlane pilot upload \
+          --ipa "App.ipa" \
+          --username "$APPLE_ID" \
+          --app_identifier "za.co.rubhub.yourapp" \
+          --skip_waiting_for_build_processing true
