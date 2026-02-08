@@ -2,8 +2,11 @@ name: Upload to TestFlight
 
 on:
   workflow_dispatch:
-  push:
-    branches: [master]
+    inputs:
+      ipa_path:
+        description: 'Path to IPA file (relative to repo root)'
+        required: true
+        default: 'build/App.ipa'
 
 jobs:
   upload-ios:
@@ -13,18 +16,56 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Setup Fastlane
+    - name: Setup Ruby
       uses: ruby/setup-ruby@v1
-      
-    - name: Install Fastlane
-      run: gem install fastlane
+      with:
+        ruby-version: '3.2'  # Specify Ruby version
+        bundler-cache: true  # Cache gems for faster runs
         
-    - name: Upload to TestFlight
+    - name: Install Fastlane and required gems
+      run: |
+        gem install fastlane -N
+        gem install dotenv
+        
+    - name: Verify IPA file exists
+      run: |
+        if [ ! -f "${{ github.event.inputs.ipa_path }}" ]; then
+          echo "❌ IPA file not found at: ${{ github.event.inputs.ipa_path }}"
+          echo "Available files:"
+          find . -name "*.ipa" -type f 2>/dev/null || echo "No .ipa files found"
+          exit 1
+        fi
+        echo "✅ IPA found: ${{ github.event.inputs.ipa_path }}"
+        ls -lh "${{ github.event.inputs.ipa_path }}"
+        
+    - name: Upload to TestFlight using Fastlane Pilot
       env:
         APPLE_ID: ${{ secrets.APPLE_ID }}
         APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        FASTLANE_USER: ${{ secrets.APPLE_ID }}
+        FASTLANE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
       run: |
+        # Create a temporary .env file for Fastlane
+        cat > .env << EOF
+        APPLE_ID=$APPLE_ID
+        APPLE_APP_SPECIFIC_PASSWORD=$APPLE_APP_SPECIFIC_PASSWORD
+        EOF
+        
+        # Upload using pilot
         fastlane pilot upload \
-          --ipa "path/to/your/app.ipa" \
+          --ipa "${{ github.event.inputs.ipa_path }}" \
           --username "$APPLE_ID" \
-          --app_identifier "com.yourcompany.yourapp"
+          --app_identifier "com.yourcompany.yourapp" \
+          --skip_waiting_for_build_processing true \
+          --verbose
+        
+    - name: Check upload status
+      run: |
+        if [ $? -eq 0 ]; then
+          echo "✅ IPA successfully uploaded to TestFlight"
+          echo "Check App Store Connect for processing status"
+        else
+          echo "❌ Upload failed"
+          exit 1
+        fi
