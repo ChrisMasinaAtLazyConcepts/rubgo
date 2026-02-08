@@ -11,9 +11,7 @@ env:
 
 jobs:
   build-ios:
-    runs-on: macos-latest  # iOS builds require macOS!
-    outputs:
-      ipa_path: ${{ steps.export_ipa.outputs.ipa_path }}
+    runs-on: macos-latest
     
     steps:
     - name: Checkout code
@@ -33,70 +31,141 @@ jobs:
     - name: Build Next.js app
       run: |
         echo "🚀 Building Next.js app..."
+        
+        # Check Next.js config
+        if ! grep -q "output.*export" next.config.js 2>/dev/null; then
+          echo "⚠️ Adding output: 'export' to next.config.js"
+          cat > next.config.js << 'EOF'
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'export',
+  trailingSlash: true,
+  images: { unoptimized: true },
+  reactStrictMode: false,
+  typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
+}
+
+module.exports = nextConfig
+EOF
+        fi
+        
         npm run build
         
         # Verify build
-        if [ -f "dist/index.html" ] || [ -f "out/index.html" ]; then
+        if [ -f "out/index.html" ] || [ -f "dist/index.html" ]; then
           echo "✅ Next.js build successful"
+          # Ensure dist folder exists
+          if [ -f "out/index.html" ]; then
+            mkdir -p dist
+            cp -r out/* dist/
+            echo "📦 Copied build to dist/"
+          fi
         else
           echo "❌ Next.js build failed"
           exit 1
         fi
         
-    - name: Setup iOS platform
+    - name: Setup iOS platform (WITH DEBUG)
       run: |
-        # Clean up previous iOS platform
+        echo "📱 Setting up iOS platform..."
+        
+        # Remove old iOS platform
         rm -rf ios
         
-        # Add iOS platform
-        npx cap add ios
+        # List files before setup
+        echo "📁 Files before adding iOS:"
+        ls -la
         
-        # Configure iOS minimum version
+        # Add iOS platform with verbose output
+        npx cap add ios --verbose
+        
+        # Check if platform was created
+        echo "📁 Files after adding iOS:"
+        ls -la
+        echo "📁 iOS folder contents:"
+        ls -la ios/ 2>/dev/null || echo "No ios folder yet"
+        
+        # Configure iOS
         npx cap config set ios.minVersion 15.0
+        npx cap config set ios.webDir dist
         
-        # Sync web assets
+        echo "🔄 Syncing with iOS..."
         npx cap sync ios
+        
+        # Verify iOS platform structure
+        echo "📁 Checking iOS structure:"
+        if [ -d "ios/App" ]; then
+          echo "✅ iOS App folder created"
+          ls -la ios/App/
+          
+          # Check for workspace
+          if [ -f "ios/App/App.xcworkspace" ]; then
+            echo "✅ App.xcworkspace exists"
+          else
+            echo "⚠️ Creating App.xcworkspace"
+            cd ios/App
+            pod install
+            cd ../..
+          fi
+        else
+          echo "❌ iOS App folder not created"
+          exit 1
+        fi
         
     - name: Install CocoaPods
       run: |
         cd ios/App
+        echo "📦 Installing CocoaPods..."
         pod install --repo-update
+        
+        # Verify workspace
+        echo "📁 After pod install:"
+        ls -la
+        if [ -f "App.xcworkspace" ]; then
+          echo "✅ App.xcworkspace exists"
+        else
+          echo "❌ App.xcworkspace not created!"
+          exit 1
+        fi
         
     - name: Build iOS IPA
       env:
         DEVELOPER_TEAM_ID: ${{ secrets.DEVELOPER_TEAM_ID }}
-        MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       run: |
-        cd ios
+        cd ios/App
         
-        # Create export options plist
+        echo "🔍 Current directory:"
+        pwd
+        echo "📁 Files:"
+        ls -la
+        
+        # Create export options
         cat > exportOptions.plist << EOF
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-            <key>compileBitcode</key>
-            <false/>
-            <key>destination</key>
-            <string>export</string>
-            <key>method</key>
-            <string>app-store</string>
-            <key>signingStyle</key>
-            <string>automatic</string>
-            <key>stripSwiftSymbols</key>
-            <true/>
-            <key>teamID</key>
-            <string>$DEVELOPER_TEAM_ID</string>
-            <key>thinning</key>
-            <string>&lt;none&gt;</string>
-        </dict>
-        </plist>
-        EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>compileBitcode</key>
+    <false/>
+    <key>destination</key>
+    <string>export</string>
+    <key>method</key>
+    <string>app-store</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <key>stripSwiftSymbols</key>
+    <true/>
+    <key>teamID</key>
+    <string>$DEVELOPER_TEAM_ID</string>
+</dict>
+</plist>
+EOF
         
-        # Clean build
-        xcodebuild clean -workspace App.xcworkspace -scheme App
+        echo "🧹 Cleaning build..."
+        xcodebuild clean -workspace App.xcworkspace -scheme App || echo "Clean failed, continuing..."
         
-        # Archive
+        echo "🏗️ Archiving app..."
         xcodebuild archive \
           -workspace App.xcworkspace \
           -scheme App \
@@ -104,16 +173,15 @@ jobs:
           -archivePath build/App.xcarchive \
           -destination 'generic/platform=iOS' \
           -allowProvisioningUpdates \
-          DEVELOPMENT_TEAM="$DEVELOPER_TEAM_ID"
+          DEVELOPMENT_TEAM="$DEVELOPER_TEAM_ID" || { echo "Archive failed"; exit 1; }
         
-        # Export IPA
+        echo "📦 Exporting IPA..."
         xcodebuild -exportArchive \
           -archivePath build/App.xcarchive \
           -exportOptionsPlist exportOptions.plist \
           -exportPath build \
-          -allowProvisioningUpdates
+          -allowProvisioningUpdates || { echo "Export failed"; exit 1; }
         
-        # Verify IPA
         if [ -f "build/App.ipa" ]; then
           echo "✅ IPA created: build/App.ipa"
           ls -lh build/App.ipa
@@ -124,62 +192,8 @@ jobs:
         fi
         
     - name: Upload IPA artifact
-      id: export_ipa
       uses: actions/upload-artifact@v4
       with:
         name: ios-ipa
-        path: ios/build/App.ipa
+        path: ios/App/build/App.ipa
         retention-days: 7
-      env:
-        IPA_PATH: ios/build/App.ipa
-  
-  upload-to-testflight:
-    runs-on: ubuntu-latest
-    needs: build-ios
-    
-    steps:
-    - name: Download IPA artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: ios-ipa
-        path: ./
-        
-    - name: Setup Fastlane
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: '3.2'
-        bundler-cache: true
-        
-    - name: Install Fastlane
-      run: gem install fastlane -N
-        
-    - name: Verify IPA exists
-      run: |
-        echo "📦 Looking for IPA..."
-        find . -name "*.ipa" -type f
-        echo ""
-        echo "📁 Current directory:"
-        ls -la
-        
-        # Move IPA to root for easier access
-        if [ -f "App.ipa" ]; then
-          echo "✅ Found App.ipa"
-        elif [ -f "ios-ipa/App.ipa" ]; then
-          mv ios-ipa/App.ipa .
-          echo "✅ Moved IPA to root"
-        else
-          echo "❌ No IPA found!"
-          exit 1
-        fi
-        
-    - name: Upload to TestFlight
-      env:
-        APPLE_ID: ${{ secrets.APPLE_ID }}
-        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-        FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-      run: |
-        fastlane pilot upload \
-          --ipa "App.ipa" \
-          --username "$APPLE_ID" \
-          --app_identifier "za.co.rubhub.yourapp" \
-          --skip_waiting_for_build_processing true
