@@ -92,10 +92,10 @@ jobs:
         
         # Create xcconfig file with team ID
         cat > build.xcconfig << EOF
-DEVELOPMENT_TEAM = $DEVELOPER_TEAM_ID
-CODE_SIGN_STYLE = Automatic
-PROVISIONING_PROFILE_SPECIFIER = 
-EOF
+        DEVELOPMENT_TEAM = $DEVELOPER_TEAM_ID
+        CODE_SIGN_STYLE = Automatic
+        PROVISIONING_PROFILE_SPECIFIER = 
+        EOF
         
         # Build the app (not archive)
         xcodebuild clean build \
