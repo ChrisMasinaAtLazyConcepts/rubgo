@@ -1,131 +1,30 @@
-name: Build iOS for TestFlight
+name: Upload to TestFlight
 
 on:
   workflow_dispatch:
   push:
     branches: [master]
-env:
-  NODE_VERSION: '20'
-  NPM_LEGACY_PEER_DEPS: 'true'
 
 jobs:
-  build-ios:
-    runs-on: macos-latest  # iOS builds require macOS
+  upload-ios:
+    runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
+    - name: Setup Fastlane
+      uses: ruby/setup-ruby@v1
+      
+    - name: Install Fastlane
+      run: gem install fastlane
         
-    - name: Install dependencies
-      run: |
-        npm ci --legacy-peer-deps
-        npm install @capacitor/core @capacitor/cli @capacitor/ios --legacy-peer-deps
-        
-    - name: Build Next.js app
-      run: |
-        npm run build
-        
-        # Verify build output
-        if [ -f "out/index.html" ]; then
-          echo "Build found in 'out/' directory"
-        elif [ -f "dist/index.html" ]; then
-          echo "Build found in 'dist/' directory"
-          # Ensure capacitor.config.ts points to dist
-          if grep -q 'webDir.*dist' capacitor.config.* 2>/dev/null; then
-            echo "Capacitor webDir correctly points to dist"
-          else
-            echo "Warning: Check capacitor.config.ts webDir setting"
-          fi
-        else
-          echo "Error: No index.html found in build output"
-          exit 1
-        fi
-        
-      - name: Ensure Clean iOS Platform
-      run: |
-        # Force a clean state for iOS
-        rm -rf ios capacitor.config.json
-        npx cap config set ios.minVersion 15.0
-
-    - name: Setup iOS platform
-      run: |
-        # Create a fresh iOS platform
-        npx cap add ios
-        # Manual step to ensure Podfile has correct iOS version
-        if [ -f "ios/App/Podfile" ]; then
-          sed -i.bak "s/platform :ios, '[0-9.]*'/platform :ios, '15.0'/" ios/App/Podfile
-          echo "✅ Podfile updated to iOS 15.0"
-        fi
-        # Sync to copy web assets with the new config
-        npx cap sync ios
-
-    - name: Install CocoaPods dependencies
-      run: |
-        cd ios/App
-        # Ensure CocoaPods uses the latest repo info
-        pod repo update
-        pod install --repo-update
-        
-    - name: Build iOS IPA
+    - name: Upload to TestFlight
       env:
-        APP_NAME: 'App'  # Change to your app name
-        BUNDLE_IDENTIFIER: 'com.yourcompany.yourapp'  # Change to your bundle ID
-        DEVELOPER_TEAM_ID: ${{ secrets.DEVELOPER_TEAM_ID }}
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
       run: |
-        cd ios
-        
-        # Clean build folder
-        xcodebuild clean -workspace App.xcworkspace -scheme App
-        
-        # Archive the app
-        xcodebuild archive \
-          -workspace App.xcworkspace \
-          -scheme App \
-          -configuration Release \
-          -archivePath $PWD/build/App.xcarchive \
-          -destination 'generic/platform=iOS' \
-          -allowProvisioningUpdates \
-          DEVELOPMENT_TEAM=$DEVELOPER_TEAM_ID \
-          CODE_SIGN_STYLE=Manual \
-          PROVISIONING_PROFILE_SPECIFIER='iOS Team Provisioning Profile: *'
-        
-        # Export IPA
-        xcodebuild -exportArchive \
-          -archivePath $PWD/build/App.xcarchive \
-          -exportOptionsPlist $GITHUB_WORKSPACE/ios/exportOptions.plist \
-          -exportPath $PWD/build \
-          -allowProvisioningUpdates
-        
-        # Verify IPA was created
-        if [ -f "$PWD/build/App.ipa" ]; then
-          echo "✅ IPA created successfully"
-          ls -lh $PWD/build/App.ipa
-        else
-          echo "❌ IPA creation failed"
-          ls -la $PWD/build/
-          exit 1
-        fi
-        
-    - name: Upload IPA artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ios-ipa
-        path: ios/build/App.ipa
-        retention-days: 7
-        
-    - name: Cleanup keychain
-      if: always()  # This ensures it runs even if previous steps fail
-      run: |
-        # Check if keychain exists before trying to delete it
-        if security list-keychains | grep -q "build.keychain"; then
-          echo "Deleting temporary build keychain..."
-          security delete-keychain build.keychain || echo "Keychain might already be deleted"
-        else
-          echo "No temporary keychain found to delete"
-        fi
+        fastlane pilot upload \
+          --ipa "path/to/your/app.ipa" \
+          --username "$APPLE_ID" \
+          --app_identifier "com.yourcompany.yourapp"
