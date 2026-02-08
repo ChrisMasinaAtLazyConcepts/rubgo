@@ -33,27 +33,27 @@ export default function SignInPage() {
       setIsLoading(true)
       setError("")
 
-      const response = await fetch(`${API_BASE_URL}/auth/signin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      })
+     // const response = await fetch(`${API_BASE_URL}/auth/signin`, {
+    //    method: 'POST',
+     //   headers: {
+     //     'Content-Type': 'application/json',
+     //   },
+    //    body: JSON.stringify(userData),
+    //  })
 
-      const data = await response.json()
+    //  const data = await response.json()
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Signin failed')
-      }
+     // if (!response.ok) {
+     //   throw new Error(data.message || 'Signin failed')
+      //}
 
       // Store token and user data
-      if (data.token) {
-        localStorage.setItem('auth_token', data.token)
-        localStorage.setItem('user', JSON.stringify(data.user))
-      }
+    //  if (data.token) {
+      //  localStorage.setItem('auth_token', data.token)
+      //  localStorage.setItem('user', JSON.stringify(data.user))
+      //}
 
-      toast.success('Welcome back!')
+      //toast.success('Welcome back!')
       return data
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Signin failed'
