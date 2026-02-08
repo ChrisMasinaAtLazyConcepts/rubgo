@@ -4,18 +4,60 @@
       run: |
         cd ios/App
         
-        echo "🔧 Setting up Xcode project for automatic signing..."
+        echo "🔧 FIXING CODE SIGNING ISSUE..."
         
-        # 1. Configure signing using xcrun instead of sed
-        echo "⚙️ Configuring code signing with xcrun..."
+        # 1. FIRST, properly update the Xcode project file
+        echo "⚙️ Updating Xcode project with development team..."
         
-        # Clean build folder
+        # Backup the project file
+        cp App.xcodeproj/project.pbxproj App.xcodeproj/project.pbxproj.backup
+        
+        # Use Python to properly parse and update the project file (more reliable)
+        cat > fix_signing.py << 'PYTHON_EOF'
+import plistlib
+import re
+import sys
+
+# Read the project.pbxproj file
+with open('App.xcodeproj/project.pbxproj', 'r') as f:
+    content = f.read()
+
+# Development team ID from environment
+team_id = sys.argv[1]
+
+# Find and replace DEVELOPMENT_TEAM
+# Pattern: DEVELOPMENT_TEAM = "";
+content = re.sub(r'DEVELOPMENT_TEAM\s*=\s*"";', f'DEVELOPMENT_TEAM = "{team_id}";', content)
+
+# Set CODE_SIGN_STYLE to Automatic
+content = re.sub(r'CODE_SIGN_STYLE\s*=\s*".*?";', 'CODE_SIGN_STYLE = "Automatic";', content)
+
+# Set PROVISIONING_PROFILE_SPECIFIER to empty
+content = re.sub(r'PROVISIONING_PROFILE_SPECIFIER\s*=\s*".*?";', 'PROVISIONING_PROFILE_SPECIFIER = "";', content)
+
+# Write back
+with open('App.xcodeproj/project.pbxproj', 'w') as f:
+    f.write(content)
+
+print("✅ Updated Xcode project with team ID:", team_id)
+PYTHON_EOF
+        
+        # Run the Python script
+        python3 fix_signing.py "$DEVELOPER_TEAM_ID"
+        
+        # Verify the changes
+        echo "🔍 Verifying changes in project.pbxproj..."
+        grep -n "DEVELOPMENT_TEAM" App.xcodeproj/project.pbxproj | head -5
+        grep -n "CODE_SIGN_STYLE" App.xcodeproj/project.pbxproj | head -5
+        
+        # 2. Clean build folder
+        echo "🧹 Cleaning build folder..."
         rm -rf build
         mkdir -p build
         
-        # Create export options
+        # 3. Create export options
         echo "📦 Creating export options..."
-        cat > exportOptions.plist << 'EXPORT_EOF'
+        cat > exportOptions.plist << 'PLIST_EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -26,153 +68,83 @@
     <string>$DEVELOPER_TEAM_ID</string>
     <key>signingStyle</key>
     <string>automatic</string>
+    <key>compileBitcode</key>
+    <false/>
 </dict>
 </plist>
-EXPORT_EOF
+PLIST_EOF
         
-        # 2. Try to build with simple xcodebuild command
-        echo "🏗️ Building archive (attempt 1)..."
+        # 4. Build archive WITH DEVELOPMENT_TEAM parameter
+        echo "🏗️ Building archive..."
         
-        # First, clean
-        xcodebuild clean \
-          -workspace App.xcworkspace \
-          -scheme App \
-          -configuration Release \
-          -quiet || echo "Clean may have warnings"
-        
-        # Build archive with automatic signing enabled
         xcodebuild archive \
           -workspace App.xcworkspace \
           -scheme App \
           -configuration Release \
-          -archivePath build/App \
+          -archivePath build/App.xcarchive \
           -destination 'generic/platform=iOS' \
           -allowProvisioningUpdates \
+          DEVELOPMENT_TEAM="$DEVELOPER_TEAM_ID" \
           CODE_SIGN_STYLE="Automatic" \
-          -quiet
+          PROVISIONING_PROFILE_SPECIFIER=""
         
-        # 3. If that fails, try alternative method
-        if [ ! -d "build/App.xcarchive" ]; then
-          echo "⚠️ First attempt failed, trying manual method..."
-          
-          # Create a simple build script
-          cat > build_app.sh << 'SCRIPT_EOF'
-#!/bin/bash
-set -e
-
-# Enable automatic signing in project
-/usr/libexec/PlistBuddy -c "Delete :objects:*:buildSettings:DEVELOPMENT_TEAM" App.xcodeproj/project.pbxproj 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Add :objects:*:buildSettings:DEVELOPMENT_TEAM string $DEVELOPER_TEAM_ID" App.xcodeproj/project.pbxproj
-/usr/libexec/PlistBuddy -c "Set :objects:*:buildSettings:CODE_SIGN_STYLE Automatic" App.xcodeproj/project.pbxproj
-/usr/libexec/PlistBuddy -c "Set :objects:*:buildSettings:PROVISIONING_PROFILE_SPECIFIER ''" App.xcodeproj/project.pbxproj
-
-# Build
-xcodebuild archive \
-  -workspace App.xcworkspace \
-  -scheme App \
-  -configuration Release \
-  -archivePath build/App \
-  -destination 'generic/platform=iOS' \
-  -allowProvisioningUpdates \
-  CODE_SIGN_STYLE="Automatic" \
-  DEVELOPMENT_TEAM="$DEVELOPER_TEAM_ID"
-
-# Export
-xcodebuild -exportArchive \
-  -archivePath build/App.xcarchive \
-  -exportOptionsPlist exportOptions.plist \
-  -exportPath build \
-  -allowProvisioningUpdates
-SCRIPT_EOF
-          
-          chmod +x build_app.sh
-          ./build_app.sh
-        fi
-        
-        # 4. If still failing, try with gym (fastlane)
-        if [ ! -d "build/App.xcarchive" ]; then
-          echo "⚠️ Second attempt failed, trying with fastlane..."
-          
-          # Install fastlane if not present
-          gem install fastlane 2>/dev/null || true
-          
-          # Create a simple Fastfile
-          mkdir -p fastlane
-          cat > fastlane/Fastfile << 'FASTLANE_EOF'
-default_platform(:ios)
-
-platform :ios do
-  desc "Build iOS app"
-  lane :build do
-    gym(
-      workspace: "App.xcworkspace",
-      scheme: "App",
-      export_method: "app-store",
-      output_directory: "build",
-      output_name: "App.ipa",
-      silent: true,
-      clean: true
-    )
-  end
-end
-FASTLANE_EOF
-          
-          # Run fastlane
-          fastlane ios build || echo "Fastlane may have warnings"
-        fi
-        
-        # 5. Check for IPA in various locations
-        echo "🔍 Looking for IPA file..."
-        
-        # Search for IPA
-        IPA_FILE=""
-        POSSIBLE_PATHS=(
-          "build/App.ipa"
-          "build/*.ipa"
-          "*.ipa"
-          "App.ipa"
-        )
-        
-        for path in "${POSSIBLE_PATHS[@]}"; do
-          if ls $path 1>/dev/null 2>&1; then
-            IPA_FILE=$(ls $path | head -1)
-            break
-          fi
-        done
-        
-        # 6. If no IPA found, create from .app file
-        if [ -z "$IPA_FILE" ]; then
-          echo "🔍 No IPA found, checking for .app file..."
-          
-          if [ -d "build/App.xcarchive/Products/Applications/App.app" ]; then
-            echo "📦 Creating IPA from .app file..."
-            mkdir -p Payload
-            cp -r build/App.xcarchive/Products/Applications/App.app Payload/
-            zip -qr build/App.ipa Payload
-            rm -rf Payload
-            IPA_FILE="build/App.ipa"
-            echo "✅ Created IPA from .app file"
-          fi
-        fi
-        
-        # 7. Final check
-        if [ -n "$IPA_FILE" ] && [ -f "$IPA_FILE" ]; then
-          echo "✅ IPA created successfully: $IPA_FILE"
-          ls -lh "$IPA_FILE"
-          
-          # Ensure it's in the standard location
-          if [ "$IPA_FILE" != "ios/App/build/App.ipa" ]; then
-            mkdir -p build
-            cp "$IPA_FILE" build/App.ipa
-            echo "📦 Moved IPA to standard location: build/App.ipa"
-            ls -lh build/App.ipa
-          fi
+        # Check result
+        if [ $? -eq 0 ] && [ -d "build/App.xcarchive" ]; then
+          echo "✅ Archive created successfully!"
         else
-          echo "❌ IPA creation failed!"
-          echo "📁 Current directory: $(pwd)"
-          echo "📁 Contents:"
-          ls -la
-          echo "📁 Build folder:"
-          ls -la build/ 2>/dev/null || echo "No build folder"
-          exit 1
+          echo "⚠️ Archive may have warnings, checking if .xcarchive exists..."
+          if [ -d "build/App.xcarchive" ]; then
+            echo "✅ .xcarchive exists despite warnings"
+          else
+            echo "❌ Archive failed completely"
+            echo "📁 Build folder contents:"
+            ls -la build/
+            exit 1
+          fi
         fi
+        
+        # 5. Export IPA
+        echo "📤 Exporting IPA..."
+        xcodebuild -exportArchive \
+          -archivePath build/App.xcarchive \
+          -exportOptionsPlist exportOptions.plist \
+          -exportPath build \
+          -allowProvisioningUpdates
+        
+        # 6. Check for IPA
+        echo "🔍 Looking for IPA..."
+        
+        if [ -f "build/App.ipa" ]; then
+          echo "✅ IPA created: build/App.ipa"
+          ls -lh build/App.ipa
+        else
+          echo "⚠️ IPA not in expected location, searching..."
+          
+          # Search for any .ipa file
+          IPA_FILE=$(find . -name "*.ipa" -type f | head -1)
+          if [ -n "$IPA_FILE" ]; then
+            echo "✅ Found IPA: $IPA_FILE"
+            # Move to standard location
+            cp "$IPA_FILE" build/App.ipa
+            ls -lh build/App.ipa
+          else
+            echo "❌ No IPA found, creating manually from .app..."
+            
+            if [ -d "build/App.xcarchive/Products/Applications/App.app" ]; then
+              echo "📦 Creating IPA from .app file..."
+              mkdir -p Payload
+              cp -r build/App.xcarchive/Products/Applications/App.app Payload/
+              zip -qr build/App.ipa Payload
+              rm -rf Payload
+              echo "✅ Manual IPA created: build/App.ipa"
+              ls -lh build/App.ipa
+            else
+              echo "❌ Build failed - no .app file found"
+              echo "📁 Build folder:"
+              ls -la build/
+              exit 1
+            fi
+          fi
+        fi
+        
+        echo "🎉 Build completed successfully!"
