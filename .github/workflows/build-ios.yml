@@ -114,30 +114,28 @@ jobs:
         
         echo "✅ Xcode project configured for automatic signing"
         
-        # 3. Create export options
+        # 3. Create export options - FIXED: Use echo instead of EOF
         echo "📦 Creating export options..."
-        cat > exportOptions.plist << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>compileBitcode</key>
-    <false/>
-    <key>destination</key>
-    <string>export</string>
-    <key>method</key>
-    <string>app-store</string>
-    <key>signingStyle</key>
-    <string>automatic</string>
-    <key>stripSwiftSymbols</key>
-    <true/>
-    <key>teamID</key>
-    <string>$DEVELOPER_TEAM_ID</string>
-    <key>thinning</key>
-    <string>&lt;none&gt;</string>
-</dict>
-</plist>
-EOF
+        echo '<?xml version="1.0" encoding="UTF-8"?>' > exportOptions.plist
+        echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> exportOptions.plist
+        echo '<plist version="1.0">' >> exportOptions.plist
+        echo '<dict>' >> exportOptions.plist
+        echo '    <key>compileBitcode</key>' >> exportOptions.plist
+        echo '    <false/>' >> exportOptions.plist
+        echo '    <key>destination</key>' >> exportOptions.plist
+        echo '    <string>export</string>' >> exportOptions.plist
+        echo '    <key>method</key>' >> exportOptions.plist
+        echo '    <string>app-store</string>' >> exportOptions.plist
+        echo '    <key>signingStyle</key>' >> exportOptions.plist
+        echo '    <string>automatic</string>' >> exportOptions.plist
+        echo '    <key>stripSwiftSymbols</key>' >> exportOptions.plist
+        echo '    <true/>' >> exportOptions.plist
+        echo "    <key>teamID</key>" >> exportOptions.plist
+        echo "    <string>$DEVELOPER_TEAM_ID</string>" >> exportOptions.plist
+        echo '    <key>thinning</key>' >> exportOptions.plist
+        echo '    <string>&lt;none&gt;</string>' >> exportOptions.plist
+        echo '</dict>' >> exportOptions.plist
+        echo '</plist>' >> exportOptions.plist
         
         echo "🧹 Cleaning previous builds..."
         # Clean any previous builds
