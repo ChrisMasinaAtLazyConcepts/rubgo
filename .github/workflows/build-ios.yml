@@ -32,105 +32,48 @@ jobs:
       run: |
         echo "🚀 Building Next.js app..."
         
-        # Check Next.js config
-        if ! grep -q "output.*export" next.config.js 2>/dev/null; then
-          echo "⚠️ Adding output: 'export' to next.config.js"
-          
-          # FIXED: Use simpler echo commands instead of EOF heredoc
-          echo '/** @type {import('"'"'next'"'"').NextConfig} */' > next.config.js
-          echo 'const nextConfig = {' >> next.config.js
-          echo '  output: '"'"'export'"'"',' >> next.config.js
-          echo '  trailingSlash: true,' >> next.config.js
-          echo '  images: { unoptimized: true },' >> next.config.js
-          echo '  reactStrictMode: false,' >> next.config.js
-          echo '  typescript: { ignoreBuildErrors: true },' >> next.config.js
-          echo '  eslint: { ignoreDuringBuilds: true },' >> next.config.js
-          echo '}' >> next.config.js
-          echo '' >> next.config.js
-          echo 'module.exports = nextConfig' >> next.config.js
-          
-          echo "✅ Updated next.config.js"
-          cat next.config.js
-        fi
+        # Create next.config.js with static export
+        echo 'module.exports = {' > next.config.js
+        echo '  output: "export",' >> next.config.js
+        echo '  trailingSlash: true,' >> next.config.js
+        echo '  images: { unoptimized: true },' >> next.config.js
+        echo '  reactStrictMode: false,' >> next.config.js
+        echo '  typescript: { ignoreBuildErrors: true },' >> next.config.js
+        echo '  eslint: { ignoreDuringBuilds: true },' >> next.config.js
+        echo '}' >> next.config.js
         
         npm run build
         
         # Verify build
         if [ -f "out/index.html" ] || [ -f "dist/index.html" ]; then
           echo "✅ Next.js build successful"
-          # Ensure dist folder exists
           if [ -f "out/index.html" ]; then
             mkdir -p dist
             cp -r out/* dist/
-            echo "📦 Copied build to dist/"
           fi
         else
           echo "❌ Next.js build failed"
           exit 1
         fi
         
-    - name: Setup iOS platform (WITH DEBUG)
+    - name: Setup iOS platform
       run: |
-        echo "📱 Setting up iOS platform..."
-        
-        # Remove old iOS platform
+        # Clean up previous iOS platform
         rm -rf ios
         
-        # List files before setup
-        echo "📁 Files before adding iOS:"
-        ls -la
+        # Add iOS platform
+        npx cap add ios
         
-        # Add iOS platform with verbose output
-        npx cap add ios --verbose
-        
-        # Check if platform was created
-        echo "📁 Files after adding iOS:"
-        ls -la
-        echo "📁 iOS folder contents:"
-        ls -la ios/ 2>/dev/null || echo "No ios folder yet"
-        
-        # Configure iOS
+        # Configure iOS minimum version
         npx cap config set ios.minVersion 15.0
-        npx cap config set ios.webDir dist
         
-        echo "🔄 Syncing with iOS..."
+        # Sync web assets
         npx cap sync ios
-        
-        # Verify iOS platform structure
-        echo "📁 Checking iOS structure:"
-        if [ -d "ios/App" ]; then
-          echo "✅ iOS App folder created"
-          ls -la ios/App/
-          
-          # Check for workspace
-          if [ -f "ios/App/App.xcworkspace" ]; then
-            echo "✅ App.xcworkspace exists"
-          else
-            echo "⚠️ Creating App.xcworkspace"
-            cd ios/App
-            pod install
-            cd ../..
-          fi
-        else
-          echo "❌ iOS App folder not created"
-          exit 1
-        fi
         
     - name: Install CocoaPods
       run: |
         cd ios/App
-        echo "📦 Installing CocoaPods..."
         pod install --repo-update
-        
-        # Verify workspace
-        echo "📁 After pod install:"
-        ls -la
-        if [ -f "App.xcworkspace" ]; then
-          echo "✅ App.xcworkspace exists"
-        else
-          echo "❌ App.xcworkspace not created!"
-          exit 1
-        fi
         
     - name: Build iOS IPA
       env:
@@ -138,35 +81,28 @@ jobs:
       run: |
         cd ios/App
         
-        echo "🔍 Current directory:"
-        pwd
-        echo "📁 Files:"
-        ls -la
-        
-        # Create export options
-        cat > exportOptions.plist << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>compileBitcode</key>
-    <false/>
-    <key>destination</key>
-    <string>export</string>
-    <key>method</key>
-    <string>app-store</string>
-    <key>signingStyle</key>
-    <string>automatic</string>
-    <key>stripSwiftSymbols</key>
-    <true/>
-    <key>teamID</key>
-    <string>$DEVELOPER_TEAM_ID</string>
-</dict>
-</plist>
-EOF
+        # Create export options plist
+        echo '<?xml version="1.0" encoding="UTF-8"?>' > exportOptions.plist
+        echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> exportOptions.plist
+        echo '<plist version="1.0">' >> exportOptions.plist
+        echo '<dict>' >> exportOptions.plist
+        echo '    <key>compileBitcode</key>' >> exportOptions.plist
+        echo '    <false/>' >> exportOptions.plist
+        echo '    <key>destination</key>' >> exportOptions.plist
+        echo '    <string>export</string>' >> exportOptions.plist
+        echo '    <key>method</key>' >> exportOptions.plist
+        echo '    <string>app-store</string>' >> exportOptions.plist
+        echo '    <key>signingStyle</key>' >> exportOptions.plist
+        echo '    <string>automatic</string>' >> exportOptions.plist
+        echo '    <key>stripSwiftSymbols</key>' >> exportOptions.plist
+        echo '    <true/>' >> exportOptions.plist
+        echo '    <key>teamID</key>' >> exportOptions.plist
+        echo "    <string>$DEVELOPER_TEAM_ID</string>" >> exportOptions.plist
+        echo '</dict>' >> exportOptions.plist
+        echo '</plist>' >> exportOptions.plist
         
         echo "🧹 Cleaning build..."
-        xcodebuild clean -workspace App.xcworkspace -scheme App || echo "Clean failed, continuing..."
+        xcodebuild clean -workspace App.xcworkspace -scheme App
         
         echo "🏗️ Archiving app..."
         xcodebuild archive \
@@ -176,14 +112,14 @@ EOF
           -archivePath build/App.xcarchive \
           -destination 'generic/platform=iOS' \
           -allowProvisioningUpdates \
-          DEVELOPMENT_TEAM="$DEVELOPER_TEAM_ID" || { echo "Archive failed"; exit 1; }
+          DEVELOPMENT_TEAM="$DEVELOPER_TEAM_ID"
         
         echo "📦 Exporting IPA..."
         xcodebuild -exportArchive \
           -archivePath build/App.xcarchive \
           -exportOptionsPlist exportOptions.plist \
           -exportPath build \
-          -allowProvisioningUpdates || { echo "Export failed"; exit 1; }
+          -allowProvisioningUpdates
         
         if [ -f "build/App.ipa" ]; then
           echo "✅ IPA created: build/App.ipa"
@@ -200,3 +136,51 @@ EOF
         name: ios-ipa
         path: ios/App/build/App.ipa
         retention-days: 7
+  
+  upload-to-testflight:
+    runs-on: ubuntu-latest
+    needs: build-ios
+    
+    steps:
+    - name: Download IPA artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ios-ipa
+        
+    - name: Setup Fastlane
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.2'
+        
+    - name: Install Fastlane
+      run: gem install fastlane -N
+        
+    - name: Verify IPA exists
+      run: |
+        echo "📦 Looking for IPA..."
+        find . -name "*.ipa" -type f
+        
+        # Move IPA to root
+        if [ -f "App.ipa" ]; then
+          echo "✅ Found App.ipa"
+        else
+          # Download artifact puts it in current directory
+          mv *.ipa App.ipa 2>/dev/null || true
+          if [ -f "App.ipa" ]; then
+            echo "✅ Renamed IPA to App.ipa"
+          else
+            echo "❌ No IPA found!"
+            exit 1
+          fi
+        fi
+        
+    - name: Upload to TestFlight
+      env:
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      run: |
+        fastlane pilot upload \
+          --ipa "App.ipa" \
+          --username "$APPLE_ID" \
+          --app_identifier "za.co.rubhub.yourapp" \
+          --skip_waiting_for_build_processing true
