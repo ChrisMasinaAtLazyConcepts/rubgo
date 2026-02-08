@@ -5,10 +5,6 @@ on:
   push:
     branches: [master]
 
-env:
-  NODE_VERSION: '20'
-  NPM_LEGACY_PEER_DEPS: 'true'
-
 jobs:
   build-ios:
     runs-on: macos-latest
@@ -20,124 +16,163 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ env.NODE_VERSION }}
+        node-version: '20'
         cache: 'npm'
         
     - name: Install dependencies
       run: |
-        npm ci --legacy-peer-deps
-        npm install @capacitor/core @capacitor/cli @capacitor/ios --legacy-peer-deps
-        
-    - name: Build Next.js app
-      run: |
-        echo "🚀 Building Next.js app..."
-        
-        # Create next.config.js with static export
-        echo 'module.exports = {' > next.config.js
-        echo '  output: "export",' >> next.config.js
-        echo '  trailingSlash: true,' >> next.config.js
-        echo '  images: { unoptimized: true },' >> next.config.js
-        echo '  reactStrictMode: false,' >> next.config.js
-        echo '  typescript: { ignoreBuildErrors: true },' >> next.config.js
-        echo '  eslint: { ignoreDuringBuilds: true },' >> next.config.js
-        echo '}' >> next.config.js
-        
+        npm ci
         npm run build
         
-        # Verify build
-        if [ -f "out/index.html" ] || [ -f "dist/index.html" ]; then
-          echo "✅ Next.js build successful"
-          if [ -f "out/index.html" ]; then
-            mkdir -p dist
-            cp -r out/* dist/
-          fi
-        else
-          echo "❌ Next.js build failed"
-          exit 1
-        fi
-        
-    - name: Setup iOS platform
+    - name: Setup iOS
       run: |
-        # Clean up previous iOS platform
+        # Clean and setup fresh iOS project
         rm -rf ios
-        
-        # Add iOS platform
         npx cap add ios
-        
-        # Configure iOS minimum version
-        npx cap config set ios.minVersion 15.0
-        
-        # Sync web assets
         npx cap sync ios
         
-    - name: Install CocoaPods
-      run: |
+        # Install CocoaPods
         cd ios/App
         pod install --repo-update
         
-    - name: Build iOS IPA with Fastlane
+    - name: Fix Xcode Project Signing
       env:
-        DEVELOPER_TEAM_ID: RubHubDev
-        APPLE_ID: ${{ secrets.APPLE_ID }}
-        APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        TEAM_ID: ${{ secrets.TEAM_ID }}
       run: |
         cd ios/App
         
-        echo "🔧 Using Fastlane for reliable build..."
+        echo "🔧 Setting Team ID: $TEAM_ID"
         
-        # Install fastlane
-        gem install fastlane
+        # NUCLEAR OPTION: Completely rebuild Xcode project with correct signing
+        # 1. Create a Python script to properly modify the project
+        cat > fix_project.py << 'EOF'
+        import re
+        import os
         
-        # Create a simple Fastfile
-        mkdir -p fastlane
-        cat > fastlane/Fastfile << 'EOF'
-        default_platform(:ios)
-
-        platform :ios do
-          desc "Build iOS app"
-          lane :build_ipa do
-            # Build IPA
-            gym(
-              workspace: "App.xcworkspace",
-              scheme: "App",
-              export_method: "app-store",
-              output_directory: "build",
-              output_name: "App.ipa",
-              clean: true,
-              silent: true,
-              export_options: {
-                provisioningProfiles: {
-                  ENV["BUNDLE_IDENTIFIER"] => ""
-                },
-                signingStyle: "automatic"
-              }
+        team_id = os.environ.get('TEAM_ID', '')
+        
+        if not team_id:
+            print("❌ ERROR: TEAM_ID not set")
+            exit(1)
+            
+        project_file = 'App.xcodeproj/project.pbxproj'
+        
+        with open(project_file, 'r') as f:
+            content = f.read()
+        
+        # Pattern 1: Replace empty DEVELOPMENT_TEAM
+        content = re.sub(r'DEVELOPMENT_TEAM = "";', f'DEVELOPMENT_TEAM = "{team_id}";', content)
+        
+        # Pattern 2: Add DEVELOPMENT_TEAM if missing in build settings
+        if 'DEVELOPMENT_TEAM = ' not in content:
+            # Find Build Settings section and add it
+            content = re.sub(
+                r'(Build Settings = \{)(.*?)(\};)',
+                r'\1\n\t\t\t\tDEVELOPMENT_TEAM = "' + team_id + '";\2\3',
+                content,
+                flags=re.DOTALL
             )
-          end
-        end
+        
+        # Write back
+        with open(project_file, 'w') as f:
+            f.write(content)
+            
+        print(f"✅ Updated project with TEAM_ID: {team_id}")
         EOF
         
-        # Set environment variables
-        export BUNDLE_IDENTIFIER="za.co.rubhub.yourapp"  # CHANGE THIS TO YOUR BUNDLE ID
+        # 2. Run the fix
+        python3 fix_project.py
         
-        # Run fastlane
-        fastlane ios build_ipa
+        # 3. VERIFY the change
+        echo "📋 Verification:"
+        grep -n "DEVELOPMENT_TEAM" App.xcodeproj/project.pbxproj || echo "ERROR: DEVELOPMENT_TEAM not found"
         
-        # Check result
+    - name: Build IPA (NO FASTLANE)
+      env:
+        TEAM_ID: ${{ secrets.TEAM_ID }}
+      run: |
+        cd ios/App
+        
+        echo "🚀 Building IPA directly with xcodebuild..."
+        
+        # 1. Clean
+        rm -rf build
+        mkdir -p build
+        
+        # 2. CREATE EXPORT OPTIONS
+        cat > exportOptions.plist << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>compileBitcode</key>
+            <false/>
+            <key>destination</key>
+            <string>export</string>
+            <key>method</key>
+            <string>app-store</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>stripSwiftSymbols</key>
+            <true/>
+            <key>teamID</key>
+            <string>$TEAM_ID</string>
+            <key>thinning</key>
+            <string>&lt;none&gt;</string>
+        </dict>
+        </plist>
+        EOF
+        
+        # 3. ARCHIVE (SIMPLIFIED - let Xcode handle signing)
+        xcodebuild archive \
+          -workspace App.xcworkspace \
+          -scheme App \
+          -configuration Release \
+          -archivePath build/App.xcarchive \
+          -destination 'generic/platform=iOS' \
+          -allowProvisioningUpdates \
+          CODE_SIGN_STYLE="Automatic" \
+          DEVELOPMENT_TEAM="$TEAM_ID" \
+          | xcpretty
+        
+        # 4. EXPORT
+        xcodebuild -exportArchive \
+          -archivePath build/App.xcarchive \
+          -exportOptionsPlist exportOptions.plist \
+          -exportPath build \
+          -allowProvisioningUpdates \
+          | xcpretty
+        
+        # 5. CHECK RESULTS
         if [ -f "build/App.ipa" ]; then
-          echo "✅ Fastlane created IPA: build/App.ipa"
+          echo "✅ SUCCESS! IPA file created:"
           ls -lh build/App.ipa
         else
-          echo "❌ Fastlane failed"
+          echo "❌ FAILED: No IPA created"
+          echo "Looking for any IPA files:"
+          find . -name "*.ipa" -type f 2>/dev/null || echo "No IPA files found"
           exit 1
         fi
         
     - name: Upload to TestFlight
+      if: success()
       env:
         APPLE_ID: ${{ secrets.APPLE_ID }}
         APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
       run: |
-        fastlane pilot upload \
-          --ipa "App.ipa" \
-          --username "$APPLE_ID" \
-          --app_identifier "za.co.rubhub.yourapp" \
-          --skip_waiting_for_build_processing true
+        cd ios/App
+        
+        echo "📤 Uploading to TestFlight..."
+        
+        # Install xcrun tools if needed
+        xcode-select -p || sudo xcode-select -s /Applications/Xcode.app
+        
+        # Upload using altool (works with app-specific password)
+        xcrun altool --upload-app \
+          -f build/App.ipa \
+          -t ios \
+          -u "$APPLE_ID" \
+          -p "$APPLE_APP_SPECIFIC_PASSWORD" \
+          --verbose
+        
+        echo "✅ Upload complete!"
