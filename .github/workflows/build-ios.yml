@@ -75,7 +75,7 @@ jobs:
         cd ios/App
         pod install --repo-update
         
-       - name: Build iOS IPA
+    - name: Build iOS IPA
       env:
         DEVELOPER_TEAM_ID: ${{ secrets.DEVELOPER_TEAM_ID }}
       run: |
