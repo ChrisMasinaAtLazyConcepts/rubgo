@@ -3,7 +3,7 @@ name: Build iOS and Upload to TestFlight
 on:
   workflow_dispatch:
   push:
-    branches: [master]
+    branches: [off]
 
 jobs:
   build-ios:
