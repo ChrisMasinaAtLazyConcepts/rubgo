@@ -1,24 +1,46 @@
 name: Build and Deploy React PWA
-
 on:
   push:
-    branches: [ master ]
+    branches: ["master"]
+  workflow_dispatch: # Allows manual trigger
+
+# Sets permissions for the deployment job
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
   build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18' # Use a version compatible with your project
 
-      - name: Build React app
+      - name: Install Dependencies
+        run: npm ci # Uses package-lock.json for exact versions
+
+      - name: Build with Next.js (Static Export)
         run: npm run build
+        # CRITICAL: Ensure `next.config.js` is configured for static export
+        # Example config: `output: 'export'` and `basePath: '/rubgo'`
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          github_token: ${{ secrets.RUBHUB_SECRET }} 
-          publish_dir: ./build
+          branch: gh-pages
+          folder: out # The default Next.js static export folder
+          clean: true # Remove old files from gh-pages branch
