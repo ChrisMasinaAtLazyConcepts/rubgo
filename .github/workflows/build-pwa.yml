@@ -1,7 +1,7 @@
 name: Build and Deploy React PWA
 on:
   push:
-    branches: ["master"]
+    branches: ["main"]
   workflow_dispatch: # Allows manual trigger
 
 # Sets permissions for the deployment job
